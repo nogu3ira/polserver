@@ -8,10 +8,9 @@
 #include "../../bscript/berror.h"
 #include "../../bscript/impstr.h"
 #include "../../clib/logfacility.h"
-#include "../../clib/wnsckt.h"
+#include "../../clib/network/wnsckt.h"
 #include "../../plib/systemstate.h"
 #include "../uoexec.h"
-#include "osmod.h"
 
 
 namespace Pol
@@ -36,9 +35,9 @@ namespace Module
 {
 using namespace Bscript;
 
-HttpExecutorModule::HttpExecutorModule( Bscript::Executor& exec, Clib::Socket& isck )
+HttpExecutorModule::HttpExecutorModule( Bscript::Executor& exec, Clib::Socket&& isck )
     : Bscript::TmplExecutorModule<HttpExecutorModule>( "http", exec ),
-      sck_( isck ),
+      sck_( std::move( isck ) ),
       continuing_offset( 0 ),
       uoexec( static_cast<Core::UOExecutor&>( exec ) )
 {
@@ -72,7 +71,7 @@ BObjectImp* HttpExecutorModule::mf_WriteHtml()
     else
     {
       continuing_offset += nsent;
-      uoexec.os_module->SleepForMs( 500 );
+      uoexec.SleepForMs( 500 );
       --uoexec.PC;
       return uoexec.fparams[0]->impptr();
     }
@@ -110,7 +109,7 @@ BObjectImp* HttpExecutorModule::mf_WriteHtmlRaw()
     else
     {
       continuing_offset += nsent;
-      uoexec.os_module->SleepForMs( 500 );
+      uoexec.SleepForMs( 500 );
       --uoexec.PC;
       return uoexec.fparams[0]->impptr();
     }
