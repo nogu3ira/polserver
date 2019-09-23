@@ -19,6 +19,7 @@ target_link_libraries(${ex_name} PUBLIC
   plib
   tinyxml
   z
+  sqlite
 )
 if (${linux})
   target_link_libraries(${ex_name} PUBLIC

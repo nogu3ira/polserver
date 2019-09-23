@@ -162,6 +162,7 @@ macro(cmake_fake_target)
       cmake/cxx_flag_overrides.cmake
       cmake/env/pol_global_config.h.in
       cmake/env/pol_revision.h.in
+	  cmake/SQLite.cmake
   )
   source_group(cmake FILES
     cmake/init.cmake
@@ -176,6 +177,7 @@ macro(cmake_fake_target)
     cmake/release.cmake
     cmake/git_revision.cmake
     cmake/compile_defs.cmake
+	cmake/SQLite.cmake
   )
   source_group(cmake/env FILES 
     cmake/env/pol_global_config.h.in
