@@ -11,6 +11,7 @@
 #include <string>
 
 #include "../clib/maputil.h"
+#include "../sqlite-amalgamation-3290000/sqlite3.h"
 
 namespace Pol
 {
@@ -75,6 +76,15 @@ private:
   // return object copies, or references?
   typedef std::map<std::string, StorageArea*> AreaCont;
   AreaCont areas;
+
+  sqlite3* SQLiteDB;
+  void SQLite_Connect();
+  bool SQLite_ExistStorageArea( const std::string& name );
+  void SQLite_ListStorageAreas();
+  StorageArea* create_areaCache( const std::string& name );
+  void Storage::SQLite_finish( sqlite3_stmt* stmt, int x = 1 );
+  typedef std::basic_string<unsigned char*> ustring;
+  void SQLite_AddStorageArea( const std::string& name );
 
   friend class StorageAreasImp;
   friend class StorageAreasIterator;
