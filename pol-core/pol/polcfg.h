@@ -99,6 +99,8 @@ struct PolConfig
   bool show_warning_gump;
   bool show_warning_item;
 
+  bool enable_sqlite;
+
   /**
    * @brief Returns true if program aborts are reported
    */

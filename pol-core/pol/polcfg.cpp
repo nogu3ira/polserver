@@ -258,6 +258,8 @@ void PolConfig::read_pol_config( bool initial_load )
   Plib::systemstate.config.show_warning_gump = elem.remove_bool( "ShowWarningGump", true );
   Plib::systemstate.config.show_warning_item = elem.remove_bool( "ShowWarningItem", true );
 
+  Plib::systemstate.config.enable_sqlite = elem.remove_bool( "EnableSQLite", false );
+
   // store the configuration for the reporting system in the ExceptionParser
   bool reportingActive = elem.remove_bool( "ReportCrashsAutomatically", false );
   std::string reportingAdminEmail = elem.remove_string( "ReportAdminEmail", "" );
