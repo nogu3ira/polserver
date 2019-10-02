@@ -28,7 +28,7 @@ namespace Clib
 class ConfigFile;
 class ConfigElem;
 class StreamWriter;
-}
+}  // namespace Clib
 namespace Core
 {
 class StorageArea
@@ -43,8 +43,10 @@ public:
   void on_delete_realm( Realms::Realm* realm );
 
   void print( Clib::StreamWriter& sw ) const;
-  void load_item( Clib::ConfigElem& elem );
+  void load_item( Clib::ConfigElem& elem, const std::string& areaName );
   size_t estimateSize() const;
+
+  void SQLite_insert_root_item_onlyDB( Items::Item* item, const std::string& areaName );
 
 private:
   std::string _name;
@@ -56,6 +58,17 @@ private:
   friend class StorageAreaImp;
   friend class StorageAreaIterator;
   friend void write_dirty_storage( Clib::StreamWriter& );
+
+  std::string table_Item = "Item";
+  StorageArea* create_areaCache( const std::string& name );
+  bool SQLite_ExistInStorage( const std::string& name, const std::string& table_name );
+  bool SQLite_ExistInStorage( const u32 serial, const std::string& table_name );
+  bool SQLite_RemoveItem( const std::string& name );
+  bool SQLite_AddItem( Items::Item* item, const std::string& areaName );
+  Items::Item* read_itemInDB( const std::string& name );
+  void create_ItemCache( const std::string& name );
+  void SQLite_GetItem( const std::string& name, struct ItemInfoDB* i );
+  Items::Item* read_item_struct( struct ItemInfoDB* i );
 };
 
 class Storage
@@ -77,19 +90,30 @@ private:
   typedef std::map<std::string, StorageArea*> AreaCont;
   AreaCont areas;
 
-  sqlite3* SQLiteDB;
-  void SQLite_Connect();
-  bool SQLite_ExistStorageArea( const std::string& name );
-  void SQLite_ListStorageAreas();
-  StorageArea* create_areaCache( const std::string& name );
-  void Storage::SQLite_finish( sqlite3_stmt* stmt, int x = 1 );
-  typedef std::basic_string<unsigned char*> ustring;
-  void SQLite_AddStorageArea( const std::string& name );
-
   friend class StorageAreasImp;
   friend class StorageAreasIterator;
   friend void write_dirty_storage( Clib::StreamWriter& );
+
+  sqlite3* SQLiteDB;
+  std::string table_StorageArea = "StorageArea";
+  std::string get_area_name( Clib::ConfigElem& elem );
+  StorageArea* create_areaCache( const std::string& name );
+  bool SQLite_ExistInStorage( const std::string& name, const std::string& table_name );
+  bool SQLite_ExistInStorage( const u32 serial, const std::string& table_name );
+  bool SQLite_RemoveItem( const std::string& name );
+  bool SQLite_AddItem( Items::Item* item, const std::string& areaName );
+  bool SQLite_AddCProp( Items::Item* item, const int last_rowid );
+  int SQLite_GetIdArea( const std::string& name );
+  int SQLite_Last_Rowid();
+  void SQLite_Connect();
+  void SQLite_ListStorageAreas();
+  void SQLite_finish( sqlite3_stmt*& stmt, int x = 1 );
+  void SQLite_AddStorageArea( const std::string& name );
+  void SQLite_PrepareCProp( Items::Item* item, std::map<std::string, std::string>& allproperties );
+  void query_value( std::string& q, const std::string& v, bool last = false );
+  ItemInfoDB* iteminfo;
+  void SQLite_GetItem( const std::string& name, struct ItemInfoDB* i );
 };
-}
-}
+}  // namespace Core
+}  // namespace Pol
 #endif
