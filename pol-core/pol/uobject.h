@@ -175,6 +175,8 @@ public:
   virtual bool setcolor( u16 newcolor );
   virtual void on_color_changed();
 
+  virtual std::string get_realm() const;
+
   virtual void setfacing( u8 newfacing ) = 0;
   virtual void on_facing_changed();
 
@@ -289,12 +291,12 @@ public:
   DYN_PROPERTY( hit_chance, ValueModPack, PROP_HIT_CHANCE, ValueModPack::DEFAULT );
   DYN_PROPERTY( luck, ValueModPack, PROP_EXT_STATBAR_LUCK, ValueModPack::DEFAULT );
 
-
-private:
+  boost_utils::object_name_flystring name_;
   u32 _rev;
 
+private:
+
 protected:
-  boost_utils::object_name_flystring name_;
   // mutable due to dirty flag
   mutable AttributeFlags<OBJ_FLAGS> flags_;
 

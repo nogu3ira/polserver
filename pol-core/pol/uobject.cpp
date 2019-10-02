@@ -243,6 +243,10 @@ const UObject* UObject::toplevel_owner() const
   return this;
 }
 
+std::string UObject::get_realm() const
+{
+  return realm->name();
+}
 
 void UObject::printProperties( Clib::StreamWriter& sw ) const
 {

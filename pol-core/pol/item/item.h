@@ -257,21 +257,22 @@ protected:  // only derived classes need the constructor
   Item( const ItemDesc& itemdesc, Core::UOBJ_CLASS uobj_class );
 
 private:
-  double getItemdescQuality() const;
 
 public:
   Core::UContainer* container;
 
-protected:
-  Core::UOExecutor* uoexec_control();
-
   unsigned int decayat_gameclock_;
-  u16 amount_;
-  u8 slot_index_;
-
+  double getItemdescQuality() const;
   boost_utils::script_name_flystring on_use_script_;
   boost_utils::script_name_flystring equip_script_;
   boost_utils::script_name_flystring unequip_script_;
+
+protected:
+  Core::UOExecutor* uoexec_control();
+
+  u16 amount_;
+  u8 slot_index_;
+
   mutable const ItemDesc* _itemdesc;
 
 public:
@@ -279,6 +280,9 @@ public:
   u8 tile_layer;
   unsigned short hp_;
   unsigned short maxhp() const;
+  unsigned short getItemdescMaxhp() const;
+  boost_utils::script_name_flystring getItemdescEquipScript();
+  boost_utils::script_name_flystring getItemdescUnequipScript();
 
   DYN_PROPERTY( maxhp_mod, s16, Core::PROP_MAXHP_MOD, 0 );
   DYN_PROPERTY( name_suffix, std::string, Core::PROP_NAME_SUFFIX, "" );
@@ -289,10 +293,13 @@ public:
   virtual double getQuality() const;
   virtual void setQuality( double value );
 
-private:
-  /// sell and buyprice generated functions only private! (additional logic needed)
   DYN_PROPERTY( sellprice_, u32, Core::PROP_SELLPRICE, SELLPRICE_DEFAULT );
   DYN_PROPERTY( buyprice_, u32, Core::PROP_BUYPRICE, BUYPRICE_DEFAULT );
+
+private:
+  /// sell and buyprice generated functions only private! (additional logic needed)
+  //DYN_PROPERTY( sellprice_, u32, Core::PROP_SELLPRICE, SELLPRICE_DEFAULT );
+  //DYN_PROPERTY( buyprice_, u32, Core::PROP_BUYPRICE, BUYPRICE_DEFAULT );
   /// equipment has a fixed member see get/setQuality
   DYN_PROPERTY( quality, double, Core::PROP_QUALITY, getItemdescQuality() );
 

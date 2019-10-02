@@ -352,6 +352,21 @@ unsigned short Item::maxhp() const
     return USHRT_MAX;
 }
 
+unsigned short Item::getItemdescMaxhp() const
+{
+  return itemdesc().maxhp;
+}
+
+boost_utils::script_name_flystring Item::getItemdescEquipScript()
+{
+  return itemdesc().equip_script;
+}
+
+boost_utils::script_name_flystring Item::getItemdescUnequipScript()
+{
+  return itemdesc().unequip_script;
+}
+
 void Item::printProperties( Clib::StreamWriter& sw ) const
 {
   using namespace fmt;
