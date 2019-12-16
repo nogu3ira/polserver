@@ -79,8 +79,8 @@ UObject::UObject( u32 objtype, UOBJ_CLASS i_uobj_class )
       objtype_( objtype ),
       color( 0 ),
       facing( Plib::FACING_N ),
-      _rev( 0 ),
       name_( "" ),
+      _rev( 0 ),
       flags_(),
       proplist_( CPropProfiler::class_to_type( i_uobj_class ) )
 {
