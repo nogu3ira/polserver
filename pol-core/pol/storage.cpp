@@ -74,12 +74,12 @@ Items::Item* StorageArea::find_root_item( const std::string& name )
 
   if ( Plib::systemstate.config.enable_sqlite )
   {
-    if ( StorageArea::SQLite_ExistInStorage( name, table_Item ) )
+    if ( gamestate.sqlitedb.ExistInStorage( name, gamestate.sqlitedb.table_Item ) )
     {
       ERROR_PRINT << "yes found in BD.\n";
       StorageArea::create_ItemCache( name );
 
-      Cont::iterator itr = _items.find( name );
+      itr = _items.find( name );
       if ( itr != _items.end() )
       {
         return ( *itr ).second;
@@ -98,7 +98,7 @@ bool StorageArea::delete_root_item( const std::string& name )
   {
     if ( Plib::systemstate.config.enable_sqlite )
     {
-      if ( !StorageArea::SQLite_RemoveItem( name ) )
+      if ( !gamestate.sqlitedb.RemoveItem( name ) )
       {
         ERROR_PRINT << "no deleted in BD.\n";
         return false;
@@ -124,7 +124,7 @@ void StorageArea::SQLite_insert_root_item_onlyDB( Items::Item* item, const std::
 {
   if ( Plib::systemstate.config.enable_sqlite )
   {
-    if ( !StorageArea::SQLite_AddItem( item, areaName ) )
+    if ( !gamestate.sqlitedb.AddItem( item, areaName ) )
     {
       ERROR_PRINT << "no added in BD.\n";
     }
@@ -152,7 +152,7 @@ struct ItemInfoDB
 Items::Item* StorageArea::read_itemInDB( const std::string& name )
 {
   ItemInfoDB* iteminfo;
-  SQLite_GetItem( name, iteminfo );
+  gamestate.sqlitedb.GetItem( name, iteminfo );
   return StorageArea::read_item_struct( iteminfo );
 }
 
@@ -458,7 +458,7 @@ void StorageArea::load_item( Clib::ConfigElem& elem, const std::string& areaName
     // this is a container.
     if ( Plib::systemstate.config.enable_sqlite )
     {
-      if ( !StorageArea::SQLite_ExistInStorage( item->name(), table_Item ) )
+      if ( !gamestate.sqlitedb.ExistInStorage( item->name(), gamestate.sqlitedb.table_Item ) )
       {
         StorageArea::SQLite_insert_root_item_onlyDB( item, areaName );
       }
@@ -472,7 +472,7 @@ void StorageArea::load_item( Clib::ConfigElem& elem, const std::string& areaName
   {
     if ( Plib::systemstate.config.enable_sqlite )
     {
-      if ( StorageArea::SQLite_ExistInStorage( container_serial, table_Item ) )
+      if ( gamestate.sqlitedb.ExistInStorage( container_serial, gamestate.sqlitedb.table_Item ) )
       {
         StorageArea::SQLite_insert_root_item_onlyDB( item, areaName );
       }
@@ -510,7 +510,7 @@ StorageArea* Storage::find_area( const std::string& name )
 
     if ( Plib::systemstate.config.enable_sqlite )
     {
-      if ( !Storage::SQLite_ExistInStorage( name, table_StorageArea ) )
+      if ( !gamestate.sqlitedb.ExistInStorage( name, gamestate.sqlitedb.table_StorageArea ) )
       {
         ERROR_PRINT << "no found in BD.\n";
         return nullptr;
@@ -533,40 +533,40 @@ StorageArea* Storage::find_area( const std::string& name )
   }
 }
 
-static int SQLite_callback( void* NotUsed, int count, char** rowdata, char** columns )
-{
-  NotUsed;
-  int i;
-  for ( i = 0; i < count; i++ )
-  {
-    ERROR_PRINT << "Storage result: " << columns[i] << " = " << rowdata[i] << "\n";
-  }
-  ERROR_PRINT << "Storage ended.\n";
-  return 0;
-}
+//static int SQLite_callback( void* NotUsed, int count, char** rowdata, char** columns )
+//{
+//  NotUsed;
+//  int i;
+//  for ( i = 0; i < count; i++ )
+//  {
+//    ERROR_PRINT << "Storage result: " << columns[i] << " = " << rowdata[i] << "\n";
+//  }
+//  ERROR_PRINT << "Storage ended.\n";
+//  return 0;
+//}
 
-void Storage::SQLite_Connect()
+void SQLiteDB::Connect()
 {
   std::string dbpath = Plib::systemstate.config.world_data_path + "storage.db";
-  int rc = sqlite3_open( dbpath.c_str(), &SQLiteDB );
+  int rc = sqlite3_open( dbpath.c_str(), &db );
   if ( rc )
   {
-    ERROR_PRINT << "Storage: Can't open database: " << sqlite3_errmsg( SQLiteDB ) << ".\n";
-    sqlite3_close( SQLiteDB );
+    ERROR_PRINT << "Storage: Can't open database: " << sqlite3_errmsg( db ) << ".\n";
+    sqlite3_close( db );
     throw std::runtime_error( "Storage: Can't open database " + dbpath );
   }
 }
 
-void Storage::SQLite_finish( sqlite3_stmt*& stmt, int x = 1 )
+void SQLiteDB::Finish( sqlite3_stmt*& stmt, int x )
 {
   if ( x )
   {
-    ERROR_PRINT << "Storage: " << sqlite3_errmsg( SQLiteDB ) << ".\n";
+    ERROR_PRINT << "Storage: " << sqlite3_errmsg( db ) << ".\n";
   }
   sqlite3_finalize( stmt );
 }
 
-bool Storage::SQLite_ExistInStorage( const std::string& name, const std::string& table_name )
+bool SQLiteDB::ExistInStorage( const std::string& name, const std::string& table_name )
 {
   // Works to FindStorageArea and FindRootItemInStorageArea
   int result = 0;
@@ -578,10 +578,10 @@ bool Storage::SQLite_ExistInStorage( const std::string& name, const std::string&
   sqlquery += "' LIMIT 1) AS result";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( SQLiteDB, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return false;
   }
   while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
@@ -590,14 +590,14 @@ bool Storage::SQLite_ExistInStorage( const std::string& name, const std::string&
   }
   if ( rc != SQLITE_DONE )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return false;
   }
-  Storage::SQLite_finish( stmt, 0 );
+  Finish( stmt, 0 );
   return ( result == 1 );
 }
 
-bool Storage::SQLite_ExistInStorage( const u32 serial, const std::string& table_name )
+bool SQLiteDB::ExistInStorage( const u32 serial, const std::string& table_name )
 {
   // Works to FindStorageArea and FindRootItemInStorageArea
   int result = 0;
@@ -609,10 +609,10 @@ bool Storage::SQLite_ExistInStorage( const u32 serial, const std::string& table_
   sqlquery += "' LIMIT 1) AS result";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( SQLiteDB, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return false;
   }
   while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
@@ -621,68 +621,68 @@ bool Storage::SQLite_ExistInStorage( const u32 serial, const std::string& table_
   }
   if ( rc != SQLITE_DONE )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return false;
   }
-  Storage::SQLite_finish( stmt, 0 );
+  Finish( stmt, 0 );
   return ( result == 1 );
 }
 
-void Storage::SQLite_ListStorageAreas()
+void SQLiteDB::ListStorageAreas()
 {
   std::string sqlquery = "SELECT Name FROM StorageArea";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( SQLiteDB, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return;
   }
   while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
   {
     std::string Name =
         std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 0 ) ) );
-    Storage::create_areaCache( Name );
+    gamestate.storage.create_areaCache( Name );
   }
   if ( rc != SQLITE_DONE )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return;
   }
-  Storage::SQLite_finish( stmt, 0 );
+  Finish( stmt, 0 );
 }
 
-void Storage::SQLite_AddStorageArea( const std::string& name )
+void SQLiteDB::AddStorageArea( const std::string& name )
 {
   std::string sqlquery = "INSERT INTO StorageArea (Name) VALUES('";
   sqlquery += name;
   sqlquery += "')";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( SQLiteDB, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return;
   }
   rc = sqlite3_step( stmt );
 
   if ( rc != SQLITE_DONE )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return;
   }
-  else if ( sqlite3_changes( SQLiteDB ) == 0 )
+  else if ( sqlite3_changes( db ) == 0 )
   {
     ERROR_PRINT << "Storage: No data inserted.\n";
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return;
   }
-  Storage::SQLite_finish( stmt, 0 );
+  Finish( stmt, 0 );
 }
 
-int Storage::SQLite_GetIdArea( const std::string& name )
+int SQLiteDB::GetIdArea( const std::string& name )
 {
   int StorageAreaId = 0;
   std::string sqlquery = "SELECT StorageAreaId FROM StorageArea ";
@@ -691,10 +691,10 @@ int Storage::SQLite_GetIdArea( const std::string& name )
   sqlquery += "'";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( SQLiteDB, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return 0;
   }
   while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
@@ -703,24 +703,24 @@ int Storage::SQLite_GetIdArea( const std::string& name )
   }
   if ( rc != SQLITE_DONE )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return 0;
   }
-  Storage::SQLite_finish( stmt, 0 );
+  Finish( stmt, 0 );
   return StorageAreaId;
 }
 
-void Storage::SQLite_GetItem( const std::string& name, struct ItemInfoDB* i )
+void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
 {
   std::string sqlquery = "SELECT * FROM Item WHERE Name = '";
   sqlquery += name;
   sqlquery += "' LIMIT 1";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( SQLiteDB, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return;
   }
   while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
@@ -809,43 +809,43 @@ void Storage::SQLite_GetItem( const std::string& name, struct ItemInfoDB* i )
   }
   if ( rc != SQLITE_DONE )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return;
   }
-  Storage::SQLite_finish( stmt, 0 );
+  Finish( stmt, 0 );
 }
 
-bool Storage::SQLite_RemoveItem( const std::string& name )
+bool SQLiteDB::RemoveItem( const std::string& name )
 {
   std::string sqlquery = "DELETE FROM Item WHERE Name = '";
   sqlquery += name;
   sqlquery += "'";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( SQLiteDB, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return false;
   }
   rc = sqlite3_step( stmt );
 
   if ( rc != SQLITE_DONE )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return false;
   }
-  else if ( sqlite3_changes( SQLiteDB ) == 0 )
+  else if ( sqlite3_changes( db ) == 0 )
   {
     ERROR_PRINT << "Storage: No data deleted.\n";
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return false;
   }
-  Storage::SQLite_finish( stmt, 0 );
+  Finish( stmt, 0 );
   return true;
 }
 
-void Storage::query_value( std::string& q, const std::string& v, bool last = false )
+void SQLiteDB::query_value( std::string& q, const std::string& v, bool last )
 {
   if ( v != "NULL" )
   {
@@ -871,16 +871,16 @@ void Storage::query_value( std::string& q, const std::string& v, bool last = fal
   }
 }
 
-int Storage::SQLite_Last_Rowid()
+int SQLiteDB::Last_Rowid()
 {
   int rowid = 0;
   std::string sqlquery = "SELECT last_insert_rowid()";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( SQLiteDB, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return 0;
   }
   while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
@@ -889,14 +889,14 @@ int Storage::SQLite_Last_Rowid()
   }
   if ( rc != SQLITE_DONE )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return 0;
   }
-  Storage::SQLite_finish( stmt, 0 );
+  Finish( stmt, 0 );
   return rowid;
 }
 
-void Storage::SQLite_PrepareCProp( Items::Item* item,
+void SQLiteDB::PrepareCProp( Items::Item* item,
                                    std::map<std::string, std::string>& allproperties )
 {
   std::vector<std::string> propnames;
@@ -920,10 +920,10 @@ void Storage::SQLite_PrepareCProp( Items::Item* item,
   }
 }
 
-bool Storage::SQLite_AddCProp( Items::Item* item, const int last_rowid )
+bool SQLiteDB::AddCProp( Items::Item* item, const int last_rowid )
 {
   std::map<std::string, std::string> allproperties;
-  Storage::SQLite_PrepareCProp( item, allproperties );
+  PrepareCProp( item, allproperties );
 
   auto CPropId = "NULL";
   auto ItemId = std::to_string( last_rowid );
@@ -938,34 +938,34 @@ bool Storage::SQLite_AddCProp( Items::Item* item, const int last_rowid )
     s += ")";
 
     sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2( SQLiteDB, s.c_str(), -1, &stmt, NULL );
+    int rc = sqlite3_prepare_v2( db, s.c_str(), -1, &stmt, NULL );
     if ( rc != SQLITE_OK )
     {
-      Storage::SQLite_finish( stmt );
+      Finish( stmt );
       return false;
     }
     rc = sqlite3_step( stmt );
 
     if ( rc != SQLITE_DONE )
     {
-      Storage::SQLite_finish( stmt );
+      Finish( stmt );
       return false;
     }
-    else if ( sqlite3_changes( SQLiteDB ) == 0 )
+    else if ( sqlite3_changes( db ) == 0 )
     {
       ERROR_PRINT << "Storage: No CProp inserted.\n";
-      Storage::SQLite_finish( stmt );
+      Finish( stmt );
       return false;
     }
-    Storage::SQLite_finish( stmt, 0 );
+    Finish( stmt, 0 );
   }
   return true;
 }
 
-bool Storage::SQLite_AddItem( Items::Item* item, const std::string& areaName )
+bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName )
 {
   auto ItemId = "NULL";
-  auto StorageAreaId = std::to_string( SQLite_GetIdArea( areaName ) );
+  auto StorageAreaId = std::to_string( GetIdArea( areaName ) );
   auto Name = item->name();
   auto Serial = std::to_string( item->serial );
   auto ObjType = std::to_string( item->objtype_ );
@@ -1181,40 +1181,40 @@ bool Storage::SQLite_AddItem( Items::Item* item, const std::string& areaName )
   s += ")";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( SQLiteDB, s.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( db, s.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return false;
   }
   rc = sqlite3_step( stmt );
 
   if ( rc != SQLITE_DONE )
   {
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return false;
   }
-  else if ( sqlite3_changes( SQLiteDB ) == 0 )
+  else if ( sqlite3_changes( db ) == 0 )
   {
     ERROR_PRINT << "Storage: No Item inserted.\n";
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     return false;
   }
-  Storage::SQLite_finish( stmt, 0 );
+  Finish( stmt, 0 );
 
-  int last_rowid = Storage::SQLite_Last_Rowid();
+  int last_rowid = Last_Rowid();
 
   if ( !last_rowid )
   {
     ERROR_PRINT << "Storage: No lastRowId found.\n";
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     throw std::runtime_error( "Data file integrity error" );
   }
 
-  if ( !Storage::SQLite_AddCProp( item, last_rowid ) )
+  if ( !AddCProp( item, last_rowid ) )
   {
     ERROR_PRINT << "Storage: No CProp inserted.\n";
-    Storage::SQLite_finish( stmt );
+    Finish( stmt );
     throw std::runtime_error( "Data file integrity error" );
   }
 
@@ -1240,11 +1240,11 @@ StorageArea* Storage::create_area( const std::string& name )
 
     if ( Plib::systemstate.config.enable_sqlite )
     {
-      if ( !Storage::SQLite_ExistInStorage( name, table_StorageArea ) )
+      if ( !gamestate.sqlitedb.ExistInStorage( name, gamestate.sqlitedb.table_StorageArea ) )
       {
         ERROR_PRINT << "no found in BD.\n";
         // Create into DB
-        Storage::SQLite_AddStorageArea( name );
+        gamestate.sqlitedb.AddStorageArea( name );
         // Add into AreaCont
         return Storage::create_areaCache( name );
       }
@@ -1354,7 +1354,7 @@ void Storage::read( Clib::ConfigFile& cf )
   std::string areaName = "";
   if ( Plib::systemstate.config.enable_sqlite )
   {
-    Storage::SQLite_Connect();
+    gamestate.sqlitedb.Connect();
   }
 
   clock_t start = clock();
@@ -1428,8 +1428,8 @@ void Storage::clear()
   }
   if ( Plib::systemstate.config.enable_sqlite )
   {
-    sqlite3_close( SQLiteDB );
-    Storage::SQLite_Connect();
+    sqlite3_close( gamestate.sqlitedb.db );
+    gamestate.sqlitedb.Connect();
   }
 }
 
@@ -1579,7 +1579,7 @@ BObjectRef StorageAreasImp::get_member( const char* membername )
   {
     if ( Plib::systemstate.config.enable_sqlite )
     {
-      gamestate.storage.SQLite_ListStorageAreas();
+      gamestate.sqlitedb.ListStorageAreas();
     }
     return BObjectRef( new BLong( static_cast<int>( gamestate.storage.areas.size() ) ) );
   }
@@ -1594,7 +1594,7 @@ BObjectRef StorageAreasImp::OperSubscript( const BObject& obj )
 
     if ( Plib::systemstate.config.enable_sqlite )
     {
-      gamestate.storage.SQLite_ListStorageAreas();
+      gamestate.sqlitedb.ListStorageAreas();
     }
 
     Storage::AreaCont::iterator itr = gamestate.storage.areas.find( key );

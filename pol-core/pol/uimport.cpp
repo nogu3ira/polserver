@@ -398,11 +398,12 @@ void slurp( const char* filename, const char* tags, int sysfind_flags )
         else if ( elem.type_is( "STORAGEAREA" ) )
         {
           StorageArea* storage_area = gamestate.storage.create_area( elem );
+          std::string areaName = gamestate.storage.get_area_name( elem );
           // this will be followed by an item
           if ( !cf.read( elem ) )
             throw std::runtime_error( "Expected an item to exist after the storagearea." );
 
-          storage_area->load_item( elem );
+          storage_area->load_item( elem, areaName );
         }
         else if ( elem.type_is( "REALM" ) )
           read_shadow_realms( elem );

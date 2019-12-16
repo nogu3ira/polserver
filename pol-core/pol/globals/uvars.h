@@ -157,6 +157,8 @@ public:
 
   Storage storage;
 
+  SQLiteDB sqlitedb;
+
   Parties parties;
   Guilds guilds;
   unsigned int nextguildid;

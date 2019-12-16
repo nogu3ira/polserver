@@ -76,7 +76,8 @@ GameState gamestate;
 
 
 GameState::GameState()
-    : cmdlevels(),
+    : sqlitedb(),
+	  cmdlevels(),
       npc_templates(),
       npc_template_elems(),
       // Using force allocate because this is inited before reading global CProp setting
