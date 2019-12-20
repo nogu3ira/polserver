@@ -60,7 +60,6 @@ public:
   void AddStorageArea( const std::string& name );
   void PrepareCProp( Items::Item* item, std::map<std::string, std::string>& allproperties );
   void query_value( std::string& q, const std::string& v, bool last = false );
-  ItemInfoDB* iteminfo;
   void GetItem( const std::string& name, struct ItemInfoDB* i );
 
   void insert_root_item( Items::Item* item, const std::string& areaName );

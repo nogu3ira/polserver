@@ -89,9 +89,9 @@ struct ItemInfoDB
 // Read item from SQLite Database
 Items::Item* SQLiteDB::read_item( const std::string& name )
 {
-  ItemInfoDB* iteminfo;
-  SQLiteDB::GetItem( name, iteminfo );
-  return SQLiteDB::create_item_ref( iteminfo );
+  ItemInfoDB iteminfo;
+  SQLiteDB::GetItem( name, &iteminfo );
+  return SQLiteDB::create_item_ref( &iteminfo );
 }
 
 // Create item reference found in SQLite Database
@@ -435,7 +435,7 @@ bool SQLiteDB::ExistInStorage( const u32 serial, const std::string& table_name )
   std::string sqlquery = "SELECT EXISTS(SELECT 1 FROM '";
   sqlquery += table_name;
   sqlquery += "' WHERE Serial='";
-  sqlquery += serial;
+  sqlquery += std::to_string(serial);
   sqlquery += "' LIMIT 1) AS result";
 
   sqlite3_stmt* stmt;
