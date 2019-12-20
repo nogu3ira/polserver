@@ -48,6 +48,7 @@
 #include "../scrstore.h"
 #include "../spells.h"
 #include "../startloc.h"
+#include "../sqlitedb.h"
 #include "../storage.h"
 #include "../syshook.h"
 #include "../syshookscript.h"

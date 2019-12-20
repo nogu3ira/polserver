@@ -11,7 +11,6 @@
 #include <string>
 
 #include "../clib/maputil.h"
-#include "../sqlite-amalgamation-3290000/sqlite3.h"
 
 namespace Pol
 {
@@ -46,7 +45,7 @@ public:
   void load_item( Clib::ConfigElem& elem, const std::string& areaName );
   size_t estimateSize() const;
 
-  void SQLite_insert_root_item_onlyDB( Items::Item* item, const std::string& areaName );
+  void create_ItemCache( const std::string& name );
 
 private:
   std::string _name;
@@ -58,10 +57,6 @@ private:
   friend class StorageAreaImp;
   friend class StorageAreaIterator;
   friend void write_dirty_storage( Clib::StreamWriter& );
-
-  Items::Item* read_itemInDB( const std::string& name );
-  void create_ItemCache( const std::string& name );
-  Items::Item* read_item_struct( struct ItemInfoDB* i );
 };
 
 class Storage
@@ -89,36 +84,6 @@ private:
   friend class StorageAreasImp;
   friend class StorageAreasIterator;
   friend void write_dirty_storage( Clib::StreamWriter& );
-
-};
-
-class SQLiteDB
-{
-public:
-  sqlite3* db = NULL;
-  std::string table_Item = "Item";
-  std::string table_StorageArea = "StorageArea";
-
-  bool ExistInStorage( const std::string& name, const std::string& table_name );
-  bool ExistInStorage( const u32 serial, const std::string& table_name );
-  bool RemoveItem( const std::string& name );
-  bool AddItem( Items::Item* item, const std::string& areaName );
-  bool AddCProp( Items::Item* item, const int last_rowid );
-
-  int GetIdArea( const std::string& name );
-  int Last_Rowid();
-
-  void Connect();
-  void ListStorageAreas();
-  void Finish( sqlite3_stmt*& stmt, int x = 1 );
-  void AddStorageArea( const std::string& name );
-  void PrepareCProp( Items::Item* item,
-                                   std::map<std::string, std::string>& allproperties );
-  void query_value( std::string& q, const std::string& v, bool last = false );
-  ItemInfoDB* iteminfo;
-  void GetItem( const std::string& name, struct ItemInfoDB* i );
-
-private:
 };
 
 }  // namespace Core

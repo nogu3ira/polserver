@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS "Item" (
 	"DefenceIncrease"	INTEGER,
 	"DefenceIncreaseCap"	INTEGER,
 	"LowerManaCost"	INTEGER,
+	"HitChance"	INTEGER,
 	"FireResistCap"	INTEGER,
 	"ColdResistCap"	INTEGER,
 	"EnergyResistCap"	INTEGER,

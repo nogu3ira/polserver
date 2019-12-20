@@ -28,6 +28,7 @@
 #include "../reftypes.h"
 #include "../region.h"
 #include "../schedule.h"
+#include "../sqlitedb.h"
 #include "../storage.h"
 #include "../syshook.h"
 #include "../target.h"
