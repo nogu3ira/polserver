@@ -19,7 +19,6 @@ target_link_libraries(${ex_name} PUBLIC
   plib
   tinyxml
   z
-  sqlite
 )
 if (${linux})
   target_link_libraries(${ex_name} PUBLIC
@@ -64,6 +63,11 @@ if(DEFINED USE_BOOST_REGEX)
   target_link_libraries(${ex_name} PUBLIC
     boost_regex
   )
+endif()
+
+target_link_libraries(${ex_name} PUBLIC ${SQLITE_LIB})
+if (NOT EXISTS ${SQLITE_LIB})
+  add_dependencies(${ex_name} sqlite)
 endif()
 
 dist(${ex_name} .)
