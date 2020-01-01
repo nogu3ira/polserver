@@ -50,6 +50,7 @@ public:
   void* getApplicPtrParam( unsigned param, const BApplicObjType* pointer_type );
   BApplicObjBase* getApplicObjParam( unsigned param, const BApplicObjType* object_type );
   bool getStringParam( unsigned param, const String*& pstr );
+  bool getUnicodeStringParam( unsigned param, const String*& pstr );  // accepts also BLong array
   bool getRealParam( unsigned param, double& value );
   bool getObjArrayParam( unsigned param, ObjArray*& pobjarr );
 
@@ -100,15 +101,18 @@ BApplicObj<T>* getApplicObjParam( ExecutorModule& ex, unsigned param,
 template <class T>
 class TmplExecutorModule : public ExecutorModule
 {
-protected:
-  TmplExecutorModule( const char* modname, Executor& exec );
+public:
+  static const char* const modname;
 
+protected:
+  TmplExecutorModule( Executor& exec );
 
 private:
   struct FunctionDef
   {
     std::string funcname;
     BObjectImp* ( T::*fptr )();
+    unsigned argc;
   };
   using FunctionTable = std::vector<FunctionDef>;
 
@@ -129,8 +133,8 @@ template <class T>
 bool TmplExecutorModule<T>::_func_map_init = false;
 
 template <class T>
-TmplExecutorModule<T>::TmplExecutorModule( const char* modname, Executor& ex )
-    : ExecutorModule( modname, ex )
+TmplExecutorModule<T>::TmplExecutorModule( Executor& ex )
+    : ExecutorModule( TmplExecutorModule::modname, ex )
 {
   if ( !_func_map_init )
   {

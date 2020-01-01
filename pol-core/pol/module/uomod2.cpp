@@ -967,7 +967,7 @@ void sellhandler( Client* client, PKTIN_9F* msg )
 //
 //  "GUMP" Functions
 //
-BObjectImp* UOExecutorModule::mf_SendGumpMenu()
+BObjectImp* UOExecutorModule::mf_SendDialogGump()
 {
   /*
    Client* client,
@@ -1084,19 +1084,16 @@ BObjectImp* UOExecutorModule::internal_SendUnCompressedGumpMenu( Character* chr,
     BObjectImp* imp = bo->impptr();
     std::string s = imp->getStringRep();
 
-    const char* string = s.c_str();
     ++numlines;
-    size_t textlen = s.length();
+    auto utf16 = Bscript::String::toUTF16( s );
 
-    if ( msg->offset + 2 + textlen * 2 > sizeof msg->buffer )
+    if ( msg->offset + 2 + utf16.size() * 2 > sizeof msg->buffer )
     {
       return new BError( "Buffer length exceeded" );
     }
 
-    msg->WriteFlipped<u16>( textlen );
-
-    while ( *string )  // unicode
-      msg->Write<u16>( static_cast<u16>( ( *string++ ) << 8 ) );
+    msg->WriteFlipped<u16>( utf16.size() );
+    msg->WriteFlipped( utf16, false );
   }
 
   if ( msg->offset + 1 > static_cast<int>( sizeof msg->buffer ) )
@@ -1199,17 +1196,16 @@ BObjectImp* UOExecutorModule::internal_SendCompressedGumpMenu( Character* chr, O
     BObjectImp* imp = bo->impptr();
     std::string s = imp->getStringRep();
 
-    const char* string = s.c_str();
+    auto utf16 = Bscript::String::toUTF16( s );
     ++numlines;
-    size_t addlen = ( s.length() + 1 ) * 2;
+    size_t addlen = ( utf16.size() + 1 ) * 2;
     if ( datadlen + addlen > sizeof bfr->buffer )
     {
       return new BError( "Buffer length exceeded" );
     }
     datadlen += static_cast<u32>( addlen );
-    bfr->WriteFlipped<u16>( s.length() );
-    while ( *string )  // unicode
-      bfr->Write<u16>( static_cast<u16>( static_cast<u16>( *string++ ) << 8 ) );
+    bfr->WriteFlipped<u16>( utf16.size() );
+    bfr->WriteFlipped( utf16, false );
   }
   msg->WriteFlipped<u32>( numlines );
   if ( numlines != 0 )
@@ -1522,7 +1518,8 @@ void gumpbutton_handler( Client* client, PKTIN_B1* msg )
         reinterpret_cast<PKTIN_B1::STRINGS_HEADER*>( intentries + ints_count );
     u32 strings_count = cfBEu32( strhdr->count );
     // even if this is ok, it could still overflow.  Have to check each string.
-    if ( stridx + ( sizeof( PKTIN_B1::STRING_ENTRY ) - 1 ) * strings_count > msglen + 1u )
+    // -2 per entry to only count tag+length (data has size of 2 in struct)
+    if ( stridx + ( sizeof( PKTIN_B1::STRING_ENTRY ) - 2 ) * strings_count > msglen + 1u )
     {
       ERROR_PRINT << "Client (Account " << client->acct->name() << ", Character "
                   << client->chr->name()
@@ -1559,18 +1556,9 @@ void gumpbutton_handler( Client* client, PKTIN_B1* msg )
                       << ") Blech! B1 message strings overflow message buffer!\n";
           break;
         }
-        std::string str;
-        str = Clib::tostring( cfBEu16( strentry->tag ) ) + ": ";
-        str.reserve( length + str.size() );
-        u8 c;
-        for ( int si = 0; si < length; ++si )  // ENHANCE: Handle Unicode strings properly (add a
-                                               // "uc" member somewhere for each returned string
-                                               // that doesn't break existing code)
-        {
-          c = strentry->data[si * 2 + 1];
-          if ( c >= 0x20 )  // dave added 4/13/3, strip control characters
-            str.append( 1, c );
-        }
+
+        std::string str = Clib::tostring( cfBEu16( strentry->tag ) ) + ": " +
+                          Bscript::String::fromUTF16( strentry->data, length, true );
         // oops we're throwing away tag!
         hash->add( cfBEu16( strentry->tag ), new String( str ) );
       }
@@ -2045,7 +2033,7 @@ BObjectImp* PolCore::call_method( const char* methodname, Executor& ex )
   return nullptr;
 }
 
-BObjectImp* UOExecutorModule::mf_PolCore()
+BObjectImp* UOExecutorModule::mf_POLCore()
 {
   return new PolCore;
 }
@@ -2531,6 +2519,7 @@ BObjectImp* UOExecutorModule::mf_SendHousingTool()
     return new BError( "You must be inside the house to customize it." );
 
   chr->client->gd->custom_house_serial = house->serial;
+  chr->client->gd->custom_house_chrserial = chr->serial;
 
   {
     PktHelper::PacketOut<PktOut_BF_Sub20> msg;
@@ -2549,7 +2538,7 @@ BObjectImp* UOExecutorModule::mf_SendHousingTool()
 
   house->WorkingDesign.AddComponents( house );
   house->CurrentDesign.AddComponents( house );
-  Multi::CustomHouseDesign::ClearComponents( house );
+  house->WorkingDesign.ClearComponents( house );
   Multi::ItemList itemlist;
   Multi::MobileList moblist;
   Multi::UHouse::list_contents( house, itemlist, moblist );

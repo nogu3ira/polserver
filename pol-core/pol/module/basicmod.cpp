@@ -10,7 +10,6 @@
 
 
 #include "basicmod.h"
-
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -23,6 +22,8 @@
 #include "../../bscript/executor.h"
 #include "../../bscript/impstr.h"
 #include "../../clib/stlutil.h"
+
+#include <module_defs/basic.h>
 
 namespace Pol
 {
@@ -42,11 +43,11 @@ static inline bool is_base64( unsigned char c )
 }
 
 BasicExecutorModule::BasicExecutorModule( Executor& exec )
-    : Bscript::TmplExecutorModule<BasicExecutorModule>( "Basic", exec )
+    : Bscript::TmplExecutorModule<BasicExecutorModule>( exec )
 {
 }
 
-Bscript::BObjectImp* BasicExecutorModule::len()
+Bscript::BObjectImp* BasicExecutorModule::mf_Len()
 {
   Bscript::BObjectImp* imp = exec.getParamImp( 0 );
   if ( imp->isa( Bscript::BObjectImp::OTArray ) )
@@ -56,7 +57,8 @@ Bscript::BObjectImp* BasicExecutorModule::len()
   }
   else if ( imp->isa( Bscript::BObjectImp::OTString ) )
   {
-    return new BLong( static_cast<int>( imp->getStringRep().length() ) );
+    Bscript::String* str = static_cast<Bscript::String*>( imp );
+    return new BLong( static_cast<int>( str->length() ) );
   }
   else if ( imp->isa( Bscript::BObjectImp::OTError ) )
   {
@@ -69,7 +71,7 @@ Bscript::BObjectImp* BasicExecutorModule::len()
   }
 }
 
-Bscript::BObjectImp* BasicExecutorModule::find()
+Bscript::BObjectImp* BasicExecutorModule::mf_Find()
 {
   exec.makeString( 0 );
   String* str = static_cast<String*>( exec.getParamImp( 0 ) );
@@ -81,7 +83,7 @@ Bscript::BObjectImp* BasicExecutorModule::find()
   return new BLong( posn );
 }
 
-Bscript::BObjectImp* BasicExecutorModule::mf_substr()
+Bscript::BObjectImp* BasicExecutorModule::mf_SubStr()
 {
   exec.makeString( 0 );
   String* str = static_cast<String*>( exec.getParamImp( 0 ) );
@@ -175,73 +177,72 @@ Bscript::BObjectImp* BasicExecutorModule::mf_SubStrReplace()
 // just in case someone's code is bugged :(
 Bscript::BObjectImp* BasicExecutorModule::mf_Compare()
 {
-  std::string str1 = exec.paramAsString( 0 );
-  std::string str2 = exec.paramAsString( 1 );
+  String str1( exec.paramAsString( 0 ) );
+  String str2( exec.paramAsString( 1 ) );
   int pos1_index = static_cast<int>( exec.paramAsLong( 2 ) );
   int pos1_len = static_cast<int>( exec.paramAsLong( 3 ) );
   int pos2_index = static_cast<int>( exec.paramAsLong( 4 ) );
   int pos2_len = static_cast<int>( exec.paramAsLong( 5 ) );
 
+  size_t str1length( str1.length() );
+  size_t str2length( str2.length() );
   if ( pos1_index != 0 )
   {
     if ( pos1_index < 0 )
       return new BError( "Index must not be negative for param 1" );
-    if ( static_cast<unsigned>( pos1_index - 1 ) > str1.length() )
+    if ( static_cast<unsigned>( pos1_index - 1 ) > str1length )
       return new BError( "Index out of range for param 1" );
   }
   if ( pos2_index != 0 )
   {
     if ( pos2_index < 0 )
       return new BError( "Index must not be negative for param 2" );
-    if ( static_cast<unsigned>( pos2_index - 1 ) > str2.length() )
+    if ( static_cast<unsigned>( pos2_index - 1 ) > str2length )
       return new BError( "Index out of range for param 2" );
   }
 
 
   if ( pos1_len < 0 )
     return new BError( "Length must not be negative for param 1" );
-  if ( static_cast<unsigned>( pos1_len ) > ( str1.length() - pos1_index ) )
+  if ( static_cast<unsigned>( pos1_len ) > ( str1length - pos1_index ) )
     return new BError( "Length out of range for param 1" );
   if ( pos2_len < 0 )
     return new BError( "Length must not be negative for param 2" );
-  if ( static_cast<unsigned>( pos2_len ) > ( str2.length() - pos2_index ) )
+  if ( static_cast<unsigned>( pos2_len ) > ( str2length - pos2_index ) )
     return new BError( "Length out of range for param 2" );
 
 
   if ( pos1_index == 0 )
   {
-    unsigned int result = str1.compare( str2 );
-    if ( result != 0 )
+    if ( !str1.compare( str2 ) )
       return new BLong( 0 );
     else
       return new BLong( 1 );
   }
   else if ( pos1_index > 0 && pos2_index == 0 )
   {
-    unsigned int result = str1.compare( pos1_index - 1, pos1_len, str2 );
-    if ( result != 0 )
+    if ( !str1.compare( pos1_index - 1, pos1_len, str2 ) )
       return new BLong( 0 );
     else
       return new BLong( 1 );
   }
   else
   {
-    unsigned int result = str1.compare( pos1_index - 1, pos1_len, str2, pos2_index - 1, pos2_len );
-    if ( result != 0 )
+    if ( !str1.compare( pos1_index - 1, pos1_len, str2, pos2_index - 1, pos2_len ) )
       return new BLong( 0 );
     else
       return new BLong( 1 );
   }
 }
 
-Bscript::BObjectImp* BasicExecutorModule::lower()
+Bscript::BObjectImp* BasicExecutorModule::mf_Lower()
 {
   String* string = new String( exec.paramAsString( 0 ) );
   string->toLower();
   return string;
 }
 
-Bscript::BObjectImp* BasicExecutorModule::upper()
+Bscript::BObjectImp* BasicExecutorModule::mf_Upper()
 {
   String* string = new String( exec.paramAsString( 0 ) );
   string->toUpper();
@@ -306,7 +307,12 @@ Bscript::BObjectImp* BasicExecutorModule::mf_CAsc()
   if ( imp->isa( Bscript::BObjectImp::OTString ) )
   {
     String* str = static_cast<String*>( imp );
-    return new BLong( static_cast<unsigned char>( str->data()[0] ) );
+    const auto& utf16 = str->StrStr( 1, 1 )->toUTF16();
+    if ( utf16.empty() )
+      return new BLong( 0 );
+    else if ( utf16.size() > 1 )
+      return new BError( "Cannot be represented by a single number" );
+    return new BLong( utf16[0] );
   }
   else
   {
@@ -317,12 +323,13 @@ Bscript::BObjectImp* BasicExecutorModule::mf_CAsc()
 Bscript::BObjectImp* BasicExecutorModule::mf_CAscZ()
 {
   Bscript::BObjectImp* imp = exec.getParamImp( 0 );
-  std::string tmp = imp->getStringRep();
+  String tmp( imp->getStringRep() );
   int nullterm = static_cast<int>( exec.paramAsLong( 1 ) );
   std::unique_ptr<Bscript::ObjArray> arr( new Bscript::ObjArray );
-  for ( size_t i = 0; i < tmp.size(); ++i )
+  const auto& utf16 = tmp.toUTF16();
+  for ( const auto& code : utf16 )
   {
-    arr->addElement( new BLong( static_cast<unsigned char>( tmp[i] ) ) );
+    arr->addElement( new BLong( code ) );
   }
   if ( nullterm )
     arr->addElement( new BLong( 0 ) );
@@ -335,10 +342,7 @@ Bscript::BObjectImp* BasicExecutorModule::mf_CChr()
   int val;
   if ( getParam( 0, val ) )
   {
-    char s[2];
-    s[0] = static_cast<char>( val );
-    s[1] = '\0';
-    return new String( s );
+    return new String( String::fromUTF16( static_cast<u16>( val & 0xffff ) ) );
   }
   else
   {
@@ -354,28 +358,7 @@ Bscript::BObjectImp* BasicExecutorModule::mf_CChrZ()
   int break_first_null = static_cast<int>( exec.paramAsLong( 1 ) );
   if ( !arr )
     return new BError( "Invalid parameter type" );
-  for ( Bscript::ObjArray::const_iterator itr = arr->ref_arr.begin(), itrend = arr->ref_arr.end();
-        itr != itrend; ++itr )
-  {
-    BObject* bo = ( itr->get() );
-    if ( bo == nullptr )
-      continue;
-    Bscript::BObjectImp* imp = bo->impptr();
-    if ( imp )
-    {
-      if ( imp->isa( Bscript::BObjectImp::OTLong ) )
-      {
-        BLong* blong = static_cast<BLong*>( imp );
-        if ( break_first_null && blong->value() == 0 )
-          break;
-        char s[2];
-        s[0] = static_cast<char>( blong->value() );
-        s[1] = '\0';
-        res += s;
-      }
-    }
-  }
-  return new String( res );
+  return String::fromUCArray( arr, break_first_null != 0 );
 }
 
 Bscript::BObjectImp* BasicExecutorModule::mf_Hex()
@@ -828,41 +811,4 @@ Bscript::BObjectImp* BasicExecutorModule::mf_DecodeBase64()
   return new String( ret );
 }
 }  // namespace Module
-
-namespace Bscript
-{
-using namespace Module;
-template <>
-TmplExecutorModule<BasicExecutorModule>::FunctionTable
-    TmplExecutorModule<BasicExecutorModule>::function_table = {
-        {"find", &BasicExecutorModule::find},
-        {"len", &BasicExecutorModule::len},
-        {"upper", &BasicExecutorModule::upper},
-        {"lower", &BasicExecutorModule::lower},
-        {"Substr", &BasicExecutorModule::mf_substr},
-        {"Trim", &BasicExecutorModule::mf_Trim},
-        {"StrReplace", &BasicExecutorModule::mf_StrReplace},
-        {"SubStrReplace", &BasicExecutorModule::mf_SubStrReplace},
-        {"Compare", &BasicExecutorModule::mf_Compare},
-        {"CInt", &BasicExecutorModule::mf_CInt},
-        {"CStr", &BasicExecutorModule::mf_CStr},
-        {"CDbl", &BasicExecutorModule::mf_CDbl},
-        {"CAsc", &BasicExecutorModule::mf_CAsc},
-        {"CChr", &BasicExecutorModule::mf_CChr},
-        {"CAscZ", &BasicExecutorModule::mf_CAscZ},
-        {"CChrZ", &BasicExecutorModule::mf_CChrZ},
-        {"Bin", &BasicExecutorModule::mf_Bin},
-        {"Hex", &BasicExecutorModule::mf_Hex},
-        {"SplitWords", &BasicExecutorModule::mf_SplitWords},
-        {"Pack", &BasicExecutorModule::mf_Pack},
-        {"Unpack", &BasicExecutorModule::mf_Unpack},
-        {"TypeOf", &BasicExecutorModule::mf_TypeOf},
-        {"SizeOf", &BasicExecutorModule::mf_SizeOf},
-        {"TypeOfInt", &BasicExecutorModule::mf_TypeOfInt},
-        {"Boolean", &BasicExecutorModule::mf_Boolean},
-        {"PackJSON", &BasicExecutorModule::mf_PackJSON},
-        {"UnpackJSON", &BasicExecutorModule::mf_UnpackJSON},
-        {"EncodeBase64", &BasicExecutorModule::mf_EncodeBase64},
-        {"DecodeBase64", &BasicExecutorModule::mf_DecodeBase64}};
-}  // namespace Bscript
 }  // namespace Pol

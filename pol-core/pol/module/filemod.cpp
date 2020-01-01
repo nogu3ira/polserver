@@ -32,25 +32,10 @@
 #include "fileaccess.h"
 #include "filemod.h"
 
+#include <module_defs/file.h>
+
 namespace Pol
 {
-namespace Bscript
-{
-using namespace Module;
-template <>
-TmplExecutorModule<FileAccessExecutorModule>::FunctionTable
-    TmplExecutorModule<FileAccessExecutorModule>::function_table = {
-        {"FileExists", &FileAccessExecutorModule::mf_FileExists},
-        {"ReadFile", &FileAccessExecutorModule::mf_ReadFile},
-        {"WriteFile", &FileAccessExecutorModule::mf_WriteFile},
-        {"AppendToFile", &FileAccessExecutorModule::mf_AppendToFile},
-        {"LogToFile", &FileAccessExecutorModule::mf_LogToFile},
-        {"OpenBinaryFile", &FileAccessExecutorModule::mf_OpenBinaryFile},
-        {"CreateDirectory", &FileAccessExecutorModule::mf_CreateDirectory},
-        {"ListDirectory", &FileAccessExecutorModule::mf_ListDirectory},
-        {"OpenXMLFile", &FileAccessExecutorModule::mf_OpenXMLFile},
-        {"CreateXMLFile", &FileAccessExecutorModule::mf_CreateXMLFile}};
-}  // namespace Bscript
 namespace Module
 {
 using namespace Bscript;
@@ -293,7 +278,7 @@ bool HasAppendAccess( const Plib::Package* pkg, const Plib::Package* filepackage
 }
 
 FileAccessExecutorModule::FileAccessExecutorModule( Bscript::Executor& exec )
-    : TmplExecutorModule<FileAccessExecutorModule>( "file", exec )
+    : TmplExecutorModule<FileAccessExecutorModule>( exec )
 {
 }
 
@@ -355,8 +340,16 @@ Bscript::BObjectImp* FileAccessExecutorModule::mf_ReadFile()
   std::unique_ptr<Bscript::ObjArray> arr( new Bscript::ObjArray() );
 
   std::string line;
+  bool first_line( true );
   while ( getline( ifs, line ) )
-    arr->addElement( new String( line ) );
+  {
+    if ( first_line )
+    {
+      first_line = false;
+      Clib::remove_bom( &line );
+    }
+    arr->addElement( new String( line, String::Tainted::YES ) );
+  }
 
   return arr.release();
 }

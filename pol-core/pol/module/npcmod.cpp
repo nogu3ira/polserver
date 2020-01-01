@@ -5,7 +5,6 @@
  */
 
 #include "npcmod.h"
-
 #include <iostream>
 #include <stddef.h>
 #include <string>
@@ -30,60 +29,20 @@
 #include "../network/packets.h"
 #include "../network/pktdef.h"
 #include "../objtype.h"
-#include "../unicode.h"
 #include "../uoscrobj.h"
 #include "../uworld.h"
 #include "osmod.h"
 #include "unimod.h"
 
+#include <module_defs/npc.h>
+
 namespace Pol
 {
-namespace Bscript
-{
-using namespace Module;
-template <>
-TmplExecutorModule<NPCExecutorModule>::FunctionTable
-    TmplExecutorModule<NPCExecutorModule>::function_table = {
-        {"Wander", &NPCExecutorModule::mf_Wander},
-        {"self", &NPCExecutorModule::mf_Self},
-        {"face", &NPCExecutorModule::face},
-        {"move", &NPCExecutorModule::move},
-        {"WalkToward", &NPCExecutorModule::mf_WalkToward},
-        {"RunToward", &NPCExecutorModule::mf_RunToward},
-        {"WalkAwayFrom", &NPCExecutorModule::mf_WalkAwayFrom},
-        {"RunAwayFrom", &NPCExecutorModule::mf_RunAwayFrom},
-        {"TurnToward", &NPCExecutorModule::mf_TurnToward},
-        {"TurnAwayFrom", &NPCExecutorModule::mf_TurnAwayFrom},
-
-        {"WalkTowardLocation", &NPCExecutorModule::mf_WalkTowardLocation},
-        {"RunTowardLocation", &NPCExecutorModule::mf_RunTowardLocation},
-        {"WalkAwayFromLocation", &NPCExecutorModule::mf_WalkAwayFromLocation},
-        {"RunAwayFromLocation", &NPCExecutorModule::mf_RunAwayFromLocation},
-        {"TurnTowardLocation", &NPCExecutorModule::mf_TurnTowardLocation},
-        {"TurnAwayFromLocation", &NPCExecutorModule::mf_TurnAwayFromLocation},
-
-        {"say", &NPCExecutorModule::say},
-        {"SayUC", &NPCExecutorModule::SayUC},
-        {"SetOpponent", &NPCExecutorModule::mf_SetOpponent},
-        {"SetWarMode", &NPCExecutorModule::mf_SetWarMode},
-        {"SetAnchor", &NPCExecutorModule::mf_SetAnchor},
-        {"position", &NPCExecutorModule::position},
-        {"facing", &NPCExecutorModule::facing},
-        {"IsLegalMove", &NPCExecutorModule::IsLegalMove},
-        {"CanMove", &NPCExecutorModule::CanMove},
-        {"getproperty", &NPCExecutorModule::getproperty},
-        {"setproperty", &NPCExecutorModule::setproperty},
-        {"makeboundingbox", &NPCExecutorModule::makeboundingbox}
-        // { "CreateBackpack", CreateBackpack },
-        // { "CreateItem", CreateItem }
-};
-}  // namespace Bscript
-
 namespace Module
 {
 using namespace Bscript;
 NPCExecutorModule::NPCExecutorModule( Executor& ex, Mobile::NPC& npc )
-    : TmplExecutorModule<NPCExecutorModule>( "NPC", ex ), npcref( &npc ), npc( npc )
+    : TmplExecutorModule<NPCExecutorModule>( ex ), npcref( &npc ), npc( npc )
 {
   os_module = static_cast<OSExecutorModule*>( exec.findModule( "OS" ) );
   if ( os_module == nullptr )
@@ -112,7 +71,7 @@ public:
 };
 
 /* IsLegalMove: parameters (move, bounding box)*/
-BObjectImp* NPCExecutorModule::IsLegalMove()
+BObjectImp* NPCExecutorModule::mf_IsLegalMove()
 {
   String* facing_str = static_cast<String*>( exec.getParamImp( 0, BObjectImp::OTString ) );
   BApplicObjBase* appobj =
@@ -137,7 +96,7 @@ BObjectImp* NPCExecutorModule::IsLegalMove()
 }
 
 /* CanMove: parameters (facing)*/
-BObjectImp* NPCExecutorModule::CanMove()
+BObjectImp* NPCExecutorModule::mf_CanMove()
 {
   if ( exec.fparams.size() == 1 )
   {
@@ -307,7 +266,7 @@ BObjectImp* NPCExecutorModule::mf_Wander()
   return move_self( static_cast<Plib::UFACING>( newfacing ), false, adjust_ok );
 }
 
-BObjectImp* NPCExecutorModule::face()
+BObjectImp* NPCExecutorModule::mf_Face()
 {
   BObjectImp* param0 = exec.getParamImp( 0 );
   int flags;
@@ -351,7 +310,7 @@ BObjectImp* NPCExecutorModule::face()
   return new BLong( i_facing );
 }
 
-BObjectImp* NPCExecutorModule::move()
+BObjectImp* NPCExecutorModule::mf_Move()
 {
   BObjectImp* param0 = exec.getParamImp( 0 );
 
@@ -673,7 +632,7 @@ BObjectImp* NPCExecutorModule::mf_TurnAwayFromLocation()
 }
 
 
-BObjectImp* NPCExecutorModule::say()
+BObjectImp* NPCExecutorModule::mf_Say()
 {
   if ( npc.squelched() )
     return new BError( "NPC is squelched" );
@@ -681,7 +640,7 @@ BObjectImp* NPCExecutorModule::say()
     npc.unhide();
 
   const char* text = exec.paramAsString( 0 );
-  std::string texttype_str = Clib::strlower( exec.paramAsString( 1 ) );
+  std::string texttype_str = Clib::strlowerASCII( exec.paramAsString( 1 ) );
   int doevent;
   exec.getParam( 2, doevent );
   u8 texttype;
@@ -696,19 +655,44 @@ BObjectImp* NPCExecutorModule::say()
 
 
   Network::PktHelper::PacketOut<Network::PktOut_1C> msg;
-  msg->offset += 2;
-  msg->Write<u32>( npc.serial_ext );
-  msg->WriteFlipped<u16>( npc.graphic );
-  msg->Write<u8>( texttype );
-  msg->WriteFlipped<u16>( npc.speech_color() );
-  msg->WriteFlipped<u16>( npc.speech_font() );
-  msg->Write( npc.name().c_str(), 30 );
-  msg->Write( text, ( strlen( text ) > SPEECH_MAX_LEN + 1 )
-                        ? SPEECH_MAX_LEN + 1
-                        : static_cast<u16>( strlen( text ) + 1 ) );
-  u16 len = msg->offset;
-  msg->offset = 1;
-  msg->WriteFlipped<u16>( len );
+  Network::PktHelper::PacketOut<Network::PktOut_AE> ucmsg;
+  u16 len = 0;
+  u16 uclen = 0;
+  // switch to other pkt if utf8 found
+  if ( !Bscript::String::hasUTF8Characters( text ) )
+  {
+    msg->offset += 2;
+    msg->Write<u32>( npc.serial_ext );
+    msg->WriteFlipped<u16>( npc.graphic );
+    msg->Write<u8>( texttype );
+    msg->WriteFlipped<u16>( npc.speech_color() );
+    msg->WriteFlipped<u16>( npc.speech_font() );
+    msg->Write( npc.name().c_str(), 30 );
+    msg->Write( text, ( strlen( text ) > SPEECH_MAX_LEN + 1 )
+                          ? SPEECH_MAX_LEN + 1
+                          : static_cast<u16>( strlen( text ) + 1 ) );
+    len = msg->offset;
+    msg->offset = 1;
+    msg->WriteFlipped<u16>( len );
+  }
+  else
+  {
+    std::vector<u16> utf16 = Bscript::String::toUTF16( text );
+    if ( utf16.size() > SPEECH_MAX_LEN )
+      utf16.resize( SPEECH_MAX_LEN );
+    ucmsg->offset += 2;
+    ucmsg->Write<u32>( npc.serial_ext );
+    ucmsg->WriteFlipped<u16>( npc.graphic );
+    ucmsg->Write<u8>( texttype );
+    ucmsg->WriteFlipped<u16>( npc.speech_color() );
+    ucmsg->WriteFlipped<u16>( npc.speech_font() );
+    ucmsg->Write( "ENU", 4 );
+    ucmsg->Write( npc.description().c_str(), 30 );
+    ucmsg->WriteFlipped( utf16, true );
+    uclen = ucmsg->offset;
+    ucmsg->offset = 1;
+    ucmsg->WriteFlipped<u16>( uclen );
+  }
 
   // send to those nearby
   u16 range;
@@ -722,7 +706,10 @@ BObjectImp* NPCExecutorModule::say()
                                                           [&]( Mobile::Character* chr ) {
                                                             if ( !chr->is_visible_to_me( &npc ) )
                                                               return;
-                                                            msg.Send( chr->client, len );
+                                                            if ( !uclen )
+                                                              msg.Send( chr->client, len );
+                                                            else
+                                                              ucmsg.Send( chr->client, uclen );
                                                           } );
 
   if ( doevent >= 1 )
@@ -738,41 +725,34 @@ BObjectImp* NPCExecutorModule::say()
   return nullptr;
 }
 
-BObjectImp* NPCExecutorModule::SayUC()
+BObjectImp* NPCExecutorModule::mf_SayUC()
 {
   if ( npc.squelched() )
     return new BError( "NPC is squelched" );
   else if ( npc.hidden() )
     npc.unhide();
 
-  ObjArray* oText;
+  const String* text;
   const String* lang;
   int doevent;
 
-  if ( getObjArrayParam( 0, oText ) && getStringParam( 2, lang ) && getParam( 3, doevent ) )
+  if ( getUnicodeStringParam( 0, text ) && getStringParam( 2, lang ) && getParam( 3, doevent ) )
   {
-    std::string texttype_str = Clib::strlower( exec.paramAsString( 1 ) );
+    std::string texttype_str = Clib::strlowerASCII( exec.paramAsString( 1 ) );
     if ( texttype_str != "default" && texttype_str != "whisper" && texttype_str != "yell" )
     {
       return new BError( "texttype string param must be either 'default', 'whisper', or 'yell'" );
     }
 
-    size_t textlenucc = oText->ref_arr.size();
-    if ( textlenucc > SPEECH_MAX_LEN )
-      return new BError( "Unicode array exceeds maximum size." );
+    if ( text->length() > SPEECH_MAX_LEN )
+      return new BError( "Text exceeds maximum size." );
     if ( lang->length() != 3 )
       return new BError( "langcode must be a 3-character code." );
-    if ( !Core::convertArrayToUC( oText, gwtext, textlenucc ) )
-      return new BError( "Invalid value in Unicode array." );
 
-    std::string languc = Clib::strupper( lang->value() );
-    unsigned textlen = 0;
-
-    // textlen = wcslen((const wchar_t*)wtext) + 1;
-    while ( gwtext[textlen] != L'\0' )
-      ++textlen;
-    if ( textlen > SPEECH_MAX_LEN )
-      textlen = SPEECH_MAX_LEN;
+    std::vector<u16> utf16 = text->toUTF16();
+    if ( utf16.size() > SPEECH_MAX_LEN )
+      utf16.resize( SPEECH_MAX_LEN );
+    std::string languc = Clib::strupperASCII( lang->value() );
 
     u8 texttype;
     if ( texttype_str == "whisper" )
@@ -791,7 +771,7 @@ BObjectImp* NPCExecutorModule::SayUC()
     talkmsg->WriteFlipped<u16>( npc.speech_font() );
     talkmsg->Write( languc.c_str(), 4 );
     talkmsg->Write( npc.description().c_str(), 30 );
-    talkmsg->WriteFlipped( &gwtext[0], static_cast<u16>( textlen ) );
+    talkmsg->WriteFlipped( utf16, true );
     u16 len = talkmsg->offset;
     talkmsg->offset = 1;
     talkmsg->WriteFlipped<u16>( len );
@@ -812,18 +792,11 @@ BObjectImp* NPCExecutorModule::SayUC()
 
     if ( doevent >= 1 )
     {
-      char ntextbuf[SPEECH_MAX_LEN + 1];
-      int ntextbuflen = 0;
-      for ( unsigned i = 0; i < textlen; ++i )
-      {
-        ntextbuf[ntextbuflen++] = std::wcout.narrow( (wchar_t)gwtext[i], '?' );
-      }
-      ntextbuf[ntextbuflen++] = 0;
       Core::WorldIterator<Core::NPCFilter>::InRange(
           npc.x, npc.y, npc.realm, range, [&]( Mobile::Character* chr ) {
             Mobile::NPC* othernpc = static_cast<Mobile::NPC*>( chr );
             if ( othernpc != &npc )
-              othernpc->on_pc_spoke( &npc, ntextbuf, texttype, gwtext, languc.c_str(), nullptr );
+              othernpc->on_pc_spoke( &npc, text->value(), texttype, languc );
           } );
     }
   }
@@ -834,7 +807,7 @@ BObjectImp* NPCExecutorModule::SayUC()
   return nullptr;
 }
 
-BObjectImp* NPCExecutorModule::position()
+BObjectImp* NPCExecutorModule::mf_position()
 {
   std::unique_ptr<BStruct> oa( new BStruct );
 
@@ -845,12 +818,12 @@ BObjectImp* NPCExecutorModule::position()
   return oa.release();
 }
 
-BObjectImp* NPCExecutorModule::facing()
+BObjectImp* NPCExecutorModule::mf_Facing()
 {
   return new String( Mobile::FacingStr( static_cast<Plib::UFACING>( npc.facing ) ) );
 }
 
-BObjectImp* NPCExecutorModule::getproperty()
+BObjectImp* NPCExecutorModule::mf_GetProperty()
 {
   const String* propname_str;
   if ( exec.getStringParam( 0, propname_str ) )
@@ -871,7 +844,7 @@ BObjectImp* NPCExecutorModule::getproperty()
   }
 }
 
-BObjectImp* NPCExecutorModule::setproperty()
+BObjectImp* NPCExecutorModule::mf_SetProperty()
 {
   const String* propname_str;
   if ( exec.getStringParam( 0, propname_str ) )
@@ -886,7 +859,7 @@ BObjectImp* NPCExecutorModule::setproperty()
   }
 }
 
-BObjectImp* NPCExecutorModule::CreateBackpack()
+BObjectImp* NPCExecutorModule::mf_CreateBackpack()
 {
   // UNTESTED
   if ( !npc.layer_is_equipped( Core::LAYER_BACKPACK ) )
@@ -903,7 +876,7 @@ BObjectImp* NPCExecutorModule::CreateBackpack()
   return new BLong( 1 );
 }
 
-BObjectImp* NPCExecutorModule::CreateItem()
+BObjectImp* NPCExecutorModule::mf_CreateItem()
 {
   // UNTESTED
   const BLong* objtype = exec.getLongParam( 0 );
@@ -937,7 +910,7 @@ BObjectImp* NPCExecutorModule::CreateItem()
   return new BLong( serial );
 }
 
-BObjectImp* NPCExecutorModule::makeboundingbox( /* areastring */ )
+BObjectImp* NPCExecutorModule::mf_MakeBoundingBox( /* areastring */ )
 {
   auto arealist = static_cast<String*>( getParamImp( 0, BObjectImp::OTString ) );
   if ( arealist == nullptr )
