@@ -6,11 +6,6 @@
 	</header>
 	<version name="POL100">
 		<entry>
-			<date>09-21-2019</date>
-			<author>Skinny:</author>
-			<change type="Added">Enable SQLite, convert Storage.txt to DB and use it.</change>
-		</entry>
-		<entry>
 			<date>08-26-2019</date>
 			<author>Nando:</author>
 			<change type="Changed">Improved how the debug, www and aux servers handle connections. They should be faster and more stable now. Minor issues fixed.</change>

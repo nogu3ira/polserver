@@ -1,6 +1,4 @@
 ﻿-- POL100 --
-09-21-2019 Skinny:
-  Added:   Enable SQLite, convert Storage.txt to DB and use it.
 08-26-2019 Nando:
   Changed: Improved how the debug, www and aux servers handle connections. They should be faster and more stable now. Minor issues fixed.
 08-21-2019 DevGIB:
