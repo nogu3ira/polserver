@@ -47,10 +47,14 @@ public:
   bool ExistInStorage( const std::string& name, const std::string& table_name );
   bool ExistInStorage( const u32 serial, const std::string& table_name );
   bool RemoveItem( const std::string& name );
+  bool RemoveItem( const u32 serial );
   bool AddItem( Items::Item* item, const std::string& areaName );
   bool AddCProp( Items::Item* item, const int last_rowid );
+  bool RemoveCProp( const int ItemId );
+  bool UpdateItem( Items::Item* item, const std::string& areaName );
 
   int GetIdArea( const std::string& name );
+  int GetItemId( const std::string& name );
   int Last_Rowid();
 
   void Connect();
@@ -60,9 +64,14 @@ public:
   void AddStorageArea( const std::string& name );
   void PrepareCProp( Items::Item* item, std::map<std::string, std::string>& allproperties );
   void query_value( std::string& q, const std::string& v, bool last = false );
+  void query_value2( std::string& query, const std::string& column_name, const std::string& new_value, bool last = false );
   void GetItem( const std::string& name, struct ItemInfoDB* i );
 
   void insert_root_item( Items::Item* item, const std::string& areaName );
+  bool check_and_add_root_item( Items::Item* item, const std::string& areaName );
+
+  void UpdateDataStorage( std::map<Items::Item*, std::string> modified_storage );
+  void DeleteDataStorage();
 
   Items::Item* read_item( const std::string& name );
   Items::Item* create_item_ref( struct ItemInfoDB* i );

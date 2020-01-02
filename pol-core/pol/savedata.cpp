@@ -35,20 +35,20 @@ namespace Core
 // incremental saves. yay.
 // incrementals are saved in two files: the index and the data.
 // the index looks like this:
-// incr-index.1.txt:
-// modified
+// incr-index-1.txt:
+// Modified
 // {
 //     0x40002002
 //     0x40002006
 //      ...
 // }
-// deleted
+// Deleted
 // {
 //     0x40002003
 //     ...
 // }
 //
-// the data just like normal data, except for storage area root items
+// the data just like normal data (example: incr-data-1.txt), except for storage area root items
 // which are preceeded by:
 // StorageArea [name]
 // {
@@ -63,6 +63,8 @@ void write_dirty_storage( Clib::StreamWriter& sw_data )
   // these will all be processed again in write_dirty_data - but
   // they'll be clean then.  So we'll have to fudge the counters a little.
 
+  std::map<Items::Item*, std::string> modified_storage;
+
   for ( Storage::AreaCont::const_iterator area_itr = gamestate.storage.areas.begin();
         area_itr != gamestate.storage.areas.end(); ++area_itr )
   {
@@ -71,7 +73,7 @@ void write_dirty_storage( Clib::StreamWriter& sw_data )
     for ( StorageArea::Cont::const_iterator item_itr = area->_items.begin();
           item_itr != area->_items.end(); ++item_itr )
     {
-      const Items::Item* item = ( *item_itr ).second;
+      Items::Item* item = ( *item_itr ).second;
       if ( !item->dirty() )
       {
         continue;
@@ -88,6 +90,7 @@ void write_dirty_storage( Clib::StreamWriter& sw_data )
 
         item->printSelfOn( sw_data );
         objStorageManager.modified_serials.push_back( item->serial );
+        modified_storage.insert( make_pair( item, area->_name ));
       }
       else
       {
@@ -96,6 +99,8 @@ void write_dirty_storage( Clib::StreamWriter& sw_data )
       item->clear_dirty();
     }
   }
+  gamestate.sqlitedb.UpdateDataStorage( modified_storage );
+  gamestate.sqlitedb.DeleteDataStorage();
 }
 
 

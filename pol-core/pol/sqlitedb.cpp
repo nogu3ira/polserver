@@ -69,6 +69,26 @@ void SQLiteDB::insert_root_item( Items::Item* item, const std::string& areaName 
   }
 }
 
+// Check and create root item in SQLite database
+bool SQLiteDB::check_and_add_root_item( Items::Item* item, const std::string& areaName )
+{
+  if ( Plib::systemstate.config.enable_sqlite )
+  {
+    if ( !SQLiteDB::ExistInStorage( item->name(), gamestate.sqlitedb.table_Item ) )
+    {
+      if ( !SQLiteDB::AddItem( item, areaName ) )
+      {
+        ERROR_PRINT << "no added in BD.\n";
+        return false;
+      }
+      ERROR_PRINT << "yes added in BD.\n";
+      return true;
+    }
+    return false;
+  }
+  return true;
+}
+
 struct ItemInfoDB
 {
   int ItemId, StorageAreaId, Serial, ObjType, Graphic, Color, X, Y, Z, Facing, Revision, Amount,
@@ -540,6 +560,34 @@ int SQLiteDB::GetIdArea( const std::string& name )
   return StorageAreaId;
 }
 
+int SQLiteDB::GetItemId( const std::string& name )
+{
+  int ItemId = 0;
+  std::string sqlquery = "SELECT ItemId FROM Item ";
+  sqlquery += "WHERE Serial='";
+  sqlquery += name;
+  sqlquery += "'";
+
+  sqlite3_stmt* stmt;
+  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  if ( rc != SQLITE_OK )
+  {
+    Finish( stmt );
+    return 0;
+  }
+  while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
+  {
+    ItemId = sqlite3_column_int( stmt, 0 );
+  }
+  if ( rc != SQLITE_DONE )
+  {
+    Finish( stmt );
+    return 0;
+  }
+  Finish( stmt, 0 );
+  return ItemId;
+}
+
 void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
 {
   std::string sqlquery = "SELECT * FROM Item WHERE Name = '";
@@ -668,11 +716,305 @@ bool SQLiteDB::RemoveItem( const std::string& name )
   }
   else if ( sqlite3_changes( db ) == 0 )
   {
-    ERROR_PRINT << "Storage: No data deleted.\n";
+    ERROR_PRINT << "Storage: No data deleted. Name: " << name << "\n";
     Finish( stmt );
     return false;
   }
   Finish( stmt, 0 );
+  return true;
+}
+
+bool SQLiteDB::RemoveItem( const u32 serial )
+{
+  std::string sqlquery = "DELETE FROM Item WHERE Serial = '";
+  sqlquery += std::to_string(serial);
+  sqlquery += "'";
+
+  sqlite3_stmt* stmt;
+  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  if ( rc != SQLITE_OK )
+  {
+    Finish( stmt );
+    return false;
+  }
+  rc = sqlite3_step( stmt );
+
+  if ( rc != SQLITE_DONE )
+  {
+    Finish( stmt );
+    return false;
+  }
+  else if ( sqlite3_changes( db ) == 0 )
+  {
+    ERROR_PRINT << "Storage: No data deleted. Serial: " << std::to_string(serial) << "\n";
+    Finish( stmt );
+    return false;
+  }
+  Finish( stmt, 0 );
+  return true;
+}
+
+bool SQLiteDB::UpdateItem( Items::Item* item, const std::string& areaName )
+{
+  //auto ItemId = "NULL";
+  auto StorageAreaId = std::to_string( GetIdArea( areaName ) );
+  auto Name = item->name();
+  auto Serial = std::to_string( item->serial );
+  auto ObjType = std::to_string( item->objtype_ );
+  auto Graphic = std::to_string( item->graphic );
+  auto Color = item->color ? std::to_string( item->color ) : "NULL";
+  auto X = std::to_string( item->x );
+  auto Y = std::to_string( item->y );
+  auto Z = std::to_string( item->z );
+  auto Facing = item->facing ? std::to_string( item->facing ) : "NULL";
+  auto Revision = std::to_string( item->rev() );
+  auto Realm = ( item->realm == nullptr ) ? "britannia" : item->get_realm();
+  auto Amount = ( item->getamount() != 1 ) ? std::to_string( item->getamount() ) : "NULL";
+  auto Layer = item->layer ? std::to_string( item->layer ) : "NULL";
+  auto Movable =
+      ( item->movable() != item->default_movable() ) ? std::to_string( item->movable() ) : "NULL";
+  auto Invisible = ( item->invisible() != item->default_invisible() )
+                       ? std::to_string( item->invisible() )
+                       : "NULL";
+  auto Container =
+      ( item->container != nullptr ) ? std::to_string( item->container->serial ) : "NULL";
+  auto OnUseScript = ( !item->on_use_script_.get().empty() ) ? item->on_use_script_.get() : "NULL";
+  auto EquipScript = ( item->equip_script_ != item->getItemdescEquipScript() )
+                         ? item->equip_script_.get()
+                         : "NULL";
+  auto UnequipScript = ( item->unequip_script_ != item->getItemdescUnequipScript() )
+                           ? item->unequip_script_.get()
+                           : "NULL";
+  auto DecayAt = item->decayat_gameclock_ ? std::to_string( item->decayat_gameclock_ ) : "NULL";
+  auto SellPrice = item->has_sellprice_() ? std::to_string( item->sellprice_() ) : "NULL";
+  auto BuyPrice = item->has_buyprice_() ? std::to_string( item->buyprice_() ) : "NULL";
+  auto Newbie =
+      ( item->newbie() != item->default_newbie() ) ? std::to_string( item->newbie() ) : "NULL";
+  auto Insured =
+      ( item->insured() != item->default_insured() ) ? std::to_string( item->insured() ) : "NULL";
+  auto FireResist = item->has_fire_resist() ? std::to_string( item->fire_resist().value ) : "NULL";
+  auto ColdResist = item->has_cold_resist() ? std::to_string( item->cold_resist().value ) : "NULL";
+  auto EnergyResist =
+      item->has_energy_resist() ? std::to_string( item->energy_resist().value ) : "NULL";
+  auto PoisonResist =
+      item->has_poison_resist() ? std::to_string( item->poison_resist().value ) : "NULL";
+  auto PhysicalResist =
+      item->has_physical_resist() ? std::to_string( item->physical_resist().value ) : "NULL";
+  auto FireDamage = item->has_fire_damage() ? std::to_string( item->fire_damage().value ) : "NULL";
+  auto ColdDamage = item->has_cold_damage() ? std::to_string( item->cold_damage().value ) : "NULL";
+  auto EnergyDamage =
+      item->has_energy_damage() ? std::to_string( item->energy_damage().value ) : "NULL";
+  auto PoisonDamage =
+      item->has_poison_damage() ? std::to_string( item->poison_damage().value ) : "NULL";
+  auto PhysicalDamage =
+      item->has_physical_damage() ? std::to_string( item->physical_damage().value ) : "NULL";
+  auto LowerReagentCost =
+      item->has_lower_reagent_cost() ? std::to_string( item->lower_reagent_cost().value ) : "NULL";
+  auto SpellDamageIncrease = item->has_spell_damage_increase()
+                                 ? std::to_string( item->spell_damage_increase().value )
+                                 : "NULL";
+  auto FasterCasting =
+      item->has_faster_casting() ? std::to_string( item->faster_casting().value ) : "NULL";
+  auto FasterCastRecovery = item->has_faster_cast_recovery()
+                                ? std::to_string( item->faster_cast_recovery().value )
+                                : "NULL";
+  auto DefenceIncrease =
+      item->has_defence_increase() ? std::to_string( item->defence_increase().value ) : "NULL";
+  auto DefenceIncreaseCap = item->has_defence_increase_cap()
+                                ? std::to_string( item->defence_increase_cap().value )
+                                : "NULL";
+  auto LowerManaCost =
+      item->has_lower_mana_cost() ? std::to_string( item->lower_mana_cost().value ) : "NULL";
+  auto HitChance = item->has_hit_chance() ? std::to_string( item->hit_chance().value ) : "NULL";
+  auto FireResistCap =
+      item->has_fire_resist_cap() ? std::to_string( item->fire_resist_cap().value ) : "NULL";
+  auto ColdResistCap =
+      item->has_cold_resist_cap() ? std::to_string( item->cold_resist_cap().value ) : "NULL";
+  auto EnergyResistCap =
+      item->has_energy_resist_cap() ? std::to_string( item->energy_resist_cap().value ) : "NULL";
+  auto PhysicalResistCap = item->has_physical_resist_cap()
+                               ? std::to_string( item->physical_resist_cap().value )
+                               : "NULL";
+  auto PoisonResistCap =
+      item->has_poison_resist_cap() ? std::to_string( item->poison_resist_cap().value ) : "NULL";
+  auto Luck = item->has_luck() ? std::to_string( item->luck().value ) : "NULL";
+  auto MaxHp_mod = item->maxhp_mod() ? std::to_string( item->maxhp_mod() ) : "NULL";
+  auto Hp = ( item->hp_ != item->getItemdescMaxhp() ) ? std::to_string( item->hp_ ) : "NULL";
+  auto Quality = ( item->getQuality() != item->getItemdescQuality() )
+                     ? std::to_string( item->getQuality() )
+                     : "NULL";
+  auto NameSuffix = !item->name_suffix().empty() ? item->name_suffix() : "NULL";
+  auto NoDrop =
+      ( item->no_drop() != item->default_no_drop() ) ? std::to_string( item->no_drop() ) : "NULL";
+  auto FireResistMod = item->fire_resist().mod ? std::to_string( item->fire_resist().mod ) : "NULL";
+  auto ColdResistMod = item->cold_resist().mod ? std::to_string( item->cold_resist().mod ) : "NULL";
+  auto EnergyResistMod =
+      item->energy_resist().mod ? std::to_string( item->energy_resist().mod ) : "NULL";
+  auto PoisonResistMod =
+      item->poison_resist().mod ? std::to_string( item->poison_resist().mod ) : "NULL";
+  auto PhysicalResistMod =
+      item->physical_resist().mod ? std::to_string( item->physical_resist().mod ) : "NULL";
+  auto FireDamageMod = item->fire_damage().mod ? std::to_string( item->fire_damage().mod ) : "NULL";
+  auto ColdDamageMod = item->cold_damage().mod ? std::to_string( item->cold_damage().mod ) : "NULL";
+  auto EnergyDamageMod =
+      item->energy_damage().mod ? std::to_string( item->energy_damage().mod ) : "NULL";
+  auto PoisonDamageMod =
+      item->poison_damage().mod ? std::to_string( item->poison_damage().mod ) : "NULL";
+  auto PhysicalDamageMod =
+      item->physical_damage().mod ? std::to_string( item->physical_damage().mod ) : "NULL";
+  auto LowerReagentCostMod =
+      item->lower_reagent_cost().mod ? std::to_string( item->lower_reagent_cost().mod ) : "NULL";
+  auto DefenceIncreaseMod =
+      item->defence_increase().mod ? std::to_string( item->defence_increase().mod ) : "NULL";
+  auto DefenceIncreaseCapMod = item->defence_increase_cap().mod
+                                   ? std::to_string( item->defence_increase_cap().mod )
+                                   : "NULL";
+  auto LowerManaCostMod =
+      item->lower_mana_cost().mod ? std::to_string( item->lower_mana_cost().mod ) : "NULL";
+  auto HitChanceMod = item->hit_chance().mod ? std::to_string( item->hit_chance().mod ) : "NULL";
+  auto FireResistCapMod =
+      item->fire_resist_cap().mod ? std::to_string( item->fire_resist_cap().mod ) : "NULL";
+  auto ColdResistCapMod =
+      item->cold_resist_cap().mod ? std::to_string( item->cold_resist_cap().mod ) : "NULL";
+  auto EnergyResistCapMod =
+      item->energy_resist_cap().mod ? std::to_string( item->energy_resist_cap().mod ) : "NULL";
+  auto PhysicalResistCapMod =
+      item->physical_resist_cap().mod ? std::to_string( item->physical_resist_cap().mod ) : "NULL";
+  auto PoisonResistCapMod =
+      item->poison_resist_cap().mod ? std::to_string( item->poison_resist_cap().mod ) : "NULL";
+  auto SpellDamageIncreaseMod = item->spell_damage_increase().mod
+                                    ? std::to_string( item->spell_damage_increase().mod )
+                                    : "NULL";
+  auto FasterCastingMod =
+      item->faster_casting().mod ? std::to_string( item->faster_casting().mod ) : "NULL";
+  auto FasterCastRecoveryMod = item->faster_cast_recovery().mod
+                                   ? std::to_string( item->faster_cast_recovery().mod )
+                                   : "NULL";
+  auto LuckMod = item->luck().mod ? std::to_string( item->luck().mod ) : "NULL";
+
+  std::string s = "UPDATE Item SET";
+  //query_value2( s, ItemId );
+  query_value2( s, "StorageAreaId", StorageAreaId );
+  query_value2( s, "Name", Name );
+  //query_value2( s, "Serial", Serial );
+  query_value2( s, "ObjType", ObjType );
+  query_value2( s, "Graphic", Graphic );
+  query_value2( s, "Color", Color );
+  query_value2( s, "X", X );
+  query_value2( s, "Y", Y );
+  query_value2( s, "Z", Z );
+  query_value2( s, "Facing", Facing );
+  query_value2( s, "Revision", Revision );
+  query_value2( s, "Realm", Realm );
+  query_value2( s, "Amount", Amount );
+  query_value2( s, "Layer", Layer );
+  query_value2( s, "Movable", Movable );
+  query_value2( s, "Invisible", Invisible );
+  query_value2( s, "Container", Container );
+  query_value2( s, "OnUseScript", OnUseScript );
+  query_value2( s, "EquipScript", EquipScript );
+  query_value2( s, "UnequipScript", UnequipScript );
+  query_value2( s, "DecayAt", DecayAt );
+  query_value2( s, "SellPrice", SellPrice );
+  query_value2( s, "BuyPrice", BuyPrice );
+  query_value2( s, "Newbie", Newbie );
+  query_value2( s, "Insured", Insured );
+  query_value2( s, "FireResist", FireResist );
+  query_value2( s, "ColdResist", ColdResist );
+  query_value2( s, "EnergyResist", EnergyResist );
+  query_value2( s, "PoisonResist", PoisonResist );
+  query_value2( s, "PhysicalResist", PhysicalResist );
+  query_value2( s, "FireDamage", FireDamage );
+  query_value2( s, "ColdDamage", ColdDamage );
+  query_value2( s, "EnergyDamage", EnergyDamage );
+  query_value2( s, "PoisonDamage", PoisonDamage );
+  query_value2( s, "PhysicalDamage", PhysicalDamage );
+  query_value2( s, "LowerReagentCost", LowerReagentCost );
+  query_value2( s, "SpellDamageIncrease", SpellDamageIncrease );
+  query_value2( s, "FasterCasting", FasterCasting );
+  query_value2( s, "FasterCastRecovery", FasterCastRecovery );
+  query_value2( s, "DefenceIncrease", DefenceIncrease );
+  query_value2( s, "DefenceIncreaseCap", DefenceIncreaseCap );
+  query_value2( s, "LowerManaCost", LowerManaCost );
+  query_value2( s, "FireResistCap", FireResistCap );
+  query_value2( s, "ColdResistCap", ColdResistCap );
+  query_value2( s, "EnergyResistCap", EnergyResistCap );
+  query_value2( s, "PhysicalResistCap", PhysicalResistCap );
+  query_value2( s, "PoisonResistCap", PoisonResistCap );
+  query_value2( s, "Luck", Luck );
+  query_value2( s, "MaxHp_mod", MaxHp_mod );
+  query_value2( s, "Hp", Hp );
+  query_value2( s, "Quality", Quality );
+  query_value2( s, "NameSuffix", NameSuffix );
+  query_value2( s, "NoDrop", NoDrop );
+  query_value2( s, "FireResistMod", FireResistMod );
+  query_value2( s, "ColdResistMod", ColdResistMod );
+  query_value2( s, "EnergyResistMod", EnergyResistMod );
+  query_value2( s, "PoisonResistMod", PoisonResistMod );
+  query_value2( s, "PhysicalResistMod", PhysicalResistMod );
+  query_value2( s, "FireDamageMod", FireDamageMod );
+  query_value2( s, "ColdDamageMod", ColdDamageMod );
+  query_value2( s, "EnergyDamageMod", EnergyDamageMod );
+  query_value2( s, "PoisonDamageMod", PoisonDamageMod );
+  query_value2( s, "PhysicalDamageMod", PhysicalDamageMod );
+  query_value2( s, "LowerReagentCostMod", LowerReagentCostMod );
+  query_value2( s, "DefenceIncreaseMod", DefenceIncreaseMod );
+  query_value2( s, "DefenceIncreaseCapMod", DefenceIncreaseCapMod );
+  query_value2( s, "LowerManaCostMod", LowerManaCostMod );
+  query_value2( s, "HitChanceMod", HitChanceMod );
+  query_value2( s, "FireResistCapMod", FireResistCapMod );
+  query_value2( s, "ColdResistCapMod", ColdResistCapMod );
+  query_value2( s, "EnergyResistCapMod", EnergyResistCapMod );
+  query_value2( s, "PhysicalResistCapMod", PhysicalResistCapMod );
+  query_value2( s, "PoisonResistCapMod", PoisonResistCapMod );
+  query_value2( s, "SpellDamageIncreaseMod", SpellDamageIncreaseMod );
+  query_value2( s, "FasterCastingMod", FasterCastingMod );
+  query_value2( s, "FasterCastRecoveryMod", FasterCastRecoveryMod );
+  query_value2( s, "LuckMod", LuckMod, true );
+  s += " WHERE Serial = '";
+  s += Serial;
+  s += "'";
+
+  sqlite3_stmt* stmt;
+  int rc = sqlite3_prepare_v2( db, s.c_str(), -1, &stmt, NULL );
+  if ( rc != SQLITE_OK )
+  {
+    Finish( stmt );
+    return false;
+  }
+  rc = sqlite3_step( stmt );
+
+  if ( rc != SQLITE_DONE )
+  {
+    Finish( stmt );
+    return false;
+  }
+  else if ( sqlite3_changes( db ) == 0 )
+  {
+    ERROR_PRINT << "Storage: No Item updated. Serial: " << Serial << "\n";
+    Finish( stmt );
+    return false;
+  }
+  Finish( stmt, 0 );
+
+  int ItemId = GetItemId(Serial);
+
+  if ( !ItemId )
+  {
+    ERROR_PRINT << "Storage: No ItemId found.\n";
+    Finish( stmt );
+    throw std::runtime_error( "Data file integrity error (ItemId)" );
+  }
+
+  RemoveCProp( ItemId );
+
+  if ( !AddCProp( item, ItemId ) )
+  {
+    ERROR_PRINT << "Storage: No CProp inserted.\n";
+    Finish( stmt );
+    throw std::runtime_error( "Data file integrity error" );
+  }
+
   return true;
 }
 
@@ -702,6 +1044,14 @@ void SQLiteDB::query_value( std::string& q, const std::string& v, bool last )
   }
 }
 
+void SQLiteDB::query_value2( std::string& query, const std::string& column_name, const std::string& new_value, bool last )
+{
+  query += " ";
+  query += column_name;
+  query += " = ";
+  SQLiteDB::query_value( query, new_value, last );
+}
+
 int SQLiteDB::Last_Rowid()
 {
   int rowid = 0;
@@ -725,6 +1075,36 @@ int SQLiteDB::Last_Rowid()
   }
   Finish( stmt, 0 );
   return rowid;
+}
+
+bool SQLiteDB::RemoveCProp( const int ItemId )
+{
+  std::string sqlquery = "DELETE FROM CProp WHERE ItemId = '";
+  sqlquery += std::to_string( ItemId );
+  sqlquery += "'";
+
+  sqlite3_stmt* stmt;
+  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  if ( rc != SQLITE_OK )
+  {
+    Finish( stmt );
+    return false;
+  }
+  rc = sqlite3_step( stmt );
+
+  if ( rc != SQLITE_DONE )
+  {
+    Finish( stmt );
+    return false;
+  }
+  else if ( sqlite3_changes( db ) == 0 )
+  {
+    ERROR_PRINT << "Storage: No CProp deleted. ItemId: " << std::to_string( ItemId ) << "\n";
+    Finish( stmt );
+    return false;
+  }
+  Finish( stmt, 0 );
+  return true;
 }
 
 void SQLiteDB::PrepareCProp( Items::Item* item, std::map<std::string, std::string>& allproperties )
@@ -1050,6 +1430,31 @@ bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName )
   }
 
   return true;
+}
+
+void SQLiteDB::UpdateDataStorage( std::map<Items::Item*, std::string> modified_storage )
+{
+  if ( Plib::systemstate.config.enable_sqlite )
+  {
+    std::map<Items::Item*, std::string>::iterator it = modified_storage.begin();
+    for (it=modified_storage.begin(); it!=modified_storage.end(); ++it)
+    {
+      if( !SQLiteDB::UpdateItem( it->first, it->second ) )
+        throw std::runtime_error( "Data file (Storage) integrity error on update item" );
+    }
+  }
+}
+
+void SQLiteDB::DeleteDataStorage()
+{
+  if ( Plib::systemstate.config.enable_sqlite )
+  {
+    for ( unsigned i = 0; i < objStorageManager.deleted_serials.size(); ++i )
+    {
+      if( !SQLiteDB::RemoveItem( objStorageManager.deleted_serials[i] ) )
+        throw std::runtime_error( "Data file (Storage) integrity error on remove item" );
+    }
+  }
 }
 
 }  // namespace Core

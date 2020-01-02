@@ -96,6 +96,7 @@ BObjectImp* StorageExecutorModule::mf_DestroyRootItemInStorageArea()
 
 BObjectImp* StorageExecutorModule::mf_CreateRootItemInStorageArea()
 {
+  const String* areaName = getStringParam( 0 );
   auto area = static_cast<Core::StorageArea*>( getApplicPtrParam( 0, &storage_area_type ) );
   const String* name;
   const Items::ItemDesc* descriptor;
@@ -112,6 +113,13 @@ BObjectImp* StorageExecutorModule::mf_CreateRootItemInStorageArea()
 
   if ( item->realm == nullptr )
     item->realm = Core::find_realm( std::string( "britannia" ) );
+
+  // Check and create root item in SQLite database
+  if ( !Pol::Core::gamestate.sqlitedb.check_and_add_root_item( item, areaName->value() ) )
+  {
+    item->destroy();
+    return new BError( "Unable to add item in SQLite database" );
+  }
 
   area->insert_root_item( item );
 
