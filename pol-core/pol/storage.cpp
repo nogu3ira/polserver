@@ -157,19 +157,12 @@ void StorageArea::load_item( Clib::ConfigElem& elem, const std::string& areaName
   }
   else
   {
+    // this is an item inside a container
     if ( Plib::systemstate.config.enable_sqlite )
     {
-      if ( gamestate.sqlitedb.ExistInStorage( container_serial, gamestate.sqlitedb.table_Item ) )
+      if ( !gamestate.sqlitedb.ExistInStorage( container_serial, gamestate.sqlitedb.table_Item ) )
       {
         gamestate.sqlitedb.insert_root_item( item, areaName );
-      }
-      else
-      {
-        // TODO!
-        // CHECK THIS FUNCTION BELOW!
-
-        // When does deferred insertions run?
-        // defer_item_insertion( item, container_serial );
       }
     }
     else
