@@ -17,6 +17,7 @@
 #include "../clib/cfgelem.h"
 #include "../clib/cfgfile.h"
 #include "../clib/clib.h"
+#include "../clib/fileutil.h"
 #include "../clib/logfacility.h"
 #include "../clib/rawtypes.h"
 #include "../clib/streamsaver.h"
@@ -392,7 +393,14 @@ Items::Item* SQLiteDB::create_item_ref( struct ItemInfoDB* i )
 
 void SQLiteDB::Connect()
 {
-  std::string dbpath = Plib::systemstate.config.world_data_path + "storage.db";
+  std::string dbpath = Plib::systemstate.config.world_data_path + "database.db";
+
+  if ( !Clib::FileExists( dbpath ) )
+  {
+    if ( !SQLiteDB::CreateDatabase( dbpath ) )
+      throw std::runtime_error( "Storage: Can't create database " + dbpath );
+  }
+
   int rc = sqlite3_open( dbpath.c_str(), &db );
   if ( rc )
   {
@@ -422,6 +430,7 @@ bool SQLiteDB::ExistInStorage( const std::string& name, const std::string& table
   int result = 0;
 
   std::string sqlquery = "SELECT EXISTS(SELECT 1 FROM '";
+  sqlquery += prefix_table;
   sqlquery += table_name;
   sqlquery += "' WHERE Name='";
   sqlquery += name;
@@ -453,6 +462,7 @@ bool SQLiteDB::ExistInStorage( const u32 serial, const std::string& table_name )
   int result = 0;
 
   std::string sqlquery = "SELECT EXISTS(SELECT 1 FROM '";
+  sqlquery += prefix_table;
   sqlquery += table_name;
   sqlquery += "' WHERE Serial='";
   sqlquery += std::to_string(serial);
@@ -505,7 +515,9 @@ void SQLiteDB::ListStorageAreas()
 
 void SQLiteDB::AddStorageArea( const std::string& name )
 {
-  std::string sqlquery = "INSERT INTO StorageArea (Name) VALUES('";
+  std::string sqlquery = "INSERT INTO ";
+  sqlquery += prefix_table;
+  sqlquery += "StorageArea (Name) VALUES('";
   sqlquery += name;
   sqlquery += "')";
 
@@ -696,7 +708,9 @@ void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
 
 bool SQLiteDB::RemoveItem( const std::string& name )
 {
-  std::string sqlquery = "DELETE FROM Item WHERE Name = '";
+  std::string sqlquery = "DELETE FROM ";
+  sqlquery += prefix_table;
+  sqlquery += "Item WHERE Name = '";
   sqlquery += name;
   sqlquery += "'";
 
@@ -726,7 +740,9 @@ bool SQLiteDB::RemoveItem( const std::string& name )
 
 bool SQLiteDB::RemoveItem( const u32 serial )
 {
-  std::string sqlquery = "DELETE FROM Item WHERE Serial = '";
+  std::string sqlquery = "DELETE FROM ";
+  sqlquery += prefix_table;
+  sqlquery += "Item WHERE Serial = '";
   sqlquery += std::to_string(serial);
   sqlquery += "'";
 
@@ -892,7 +908,9 @@ bool SQLiteDB::UpdateItem( Items::Item* item, const std::string& areaName )
                                    : "NULL";
   auto LuckMod = item->luck().mod ? std::to_string( item->luck().mod ) : "NULL";
 
-  std::string s = "UPDATE Item SET";
+  std::string s = "UPDATE ";
+  s += prefix_table;
+  s += "Item SET";
   //query_value2( s, ItemId );
   query_value2( s, "StorageAreaId", StorageAreaId );
   query_value2( s, "Name", Name );
@@ -936,6 +954,7 @@ bool SQLiteDB::UpdateItem( Items::Item* item, const std::string& areaName )
   query_value2( s, "DefenceIncrease", DefenceIncrease );
   query_value2( s, "DefenceIncreaseCap", DefenceIncreaseCap );
   query_value2( s, "LowerManaCost", LowerManaCost );
+  query_value2( s, "HitChance", HitChance );
   query_value2( s, "FireResistCap", FireResistCap );
   query_value2( s, "ColdResistCap", ColdResistCap );
   query_value2( s, "EnergyResistCap", EnergyResistCap );
@@ -1079,7 +1098,9 @@ int SQLiteDB::Last_Rowid()
 
 bool SQLiteDB::RemoveCProp( const int ItemId )
 {
-  std::string sqlquery = "DELETE FROM CProp WHERE ItemId = '";
+  std::string sqlquery = "DELETE FROM ";
+  sqlquery += prefix_table;
+  sqlquery += "CProp WHERE ItemId = '";
   sqlquery += std::to_string( ItemId );
   sqlquery += "'";
 
@@ -1140,7 +1161,9 @@ bool SQLiteDB::AddCProp( Items::Item* item, const int last_rowid )
 
   for ( const auto& kv : allproperties )
   {
-    std::string s = "INSERT INTO CProp VALUES(";
+    std::string s = "INSERT INTO ";
+    s += prefix_table;
+    s += "CProp VALUES(";
     query_value( s, CPropId );
     query_value( s, kv.first );
     query_value( s, kv.second );
@@ -1310,7 +1333,9 @@ bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName )
                                    : "NULL";
   auto LuckMod = item->luck().mod ? std::to_string( item->luck().mod ) : "NULL";
 
-  std::string s = "INSERT INTO Item VALUES(";
+  std::string s = "INSERT INTO ";
+  s += prefix_table;
+  s += "Item VALUES(";
   query_value( s, ItemId );
   query_value( s, StorageAreaId );
   query_value( s, Name );
@@ -1354,6 +1379,7 @@ bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName )
   query_value( s, DefenceIncrease );
   query_value( s, DefenceIncreaseCap );
   query_value( s, LowerManaCost );
+  query_value( s, HitChance );
   query_value( s, FireResistCap );
   query_value( s, ColdResistCap );
   query_value( s, EnergyResistCap );
@@ -1455,6 +1481,151 @@ void SQLiteDB::DeleteDataStorage()
         throw std::runtime_error( "Data file (Storage) integrity error on remove item" );
     }
   }
+}
+
+bool SQLiteDB::CreateDatabase( const std::string& dbpath )
+{
+  int rc = sqlite3_open_v2( dbpath.c_str(), &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL);
+  if ( rc )
+  {
+    ERROR_PRINT << "Storage: Can't create database: " << sqlite3_errmsg( db ) << ".\n";
+    sqlite3_close( db );
+    return false;
+  }
+
+  // storage.txt tables
+  std::string sqlquery = "								\
+BEGIN TRANSACTION;										\
+CREATE TABLE IF NOT EXISTS 'storage_Item' (             \
+	'ItemId'	INTEGER NOT NULL,                       \
+	'StorageAreaId'	INTEGER NOT NULL,                   \
+	'Name'	TEXT,                                       \
+	'Serial'	INTEGER NOT NULL UNIQUE,                \
+	'ObjType'	INTEGER NOT NULL,                       \
+	'Graphic'	INTEGER NOT NULL,                       \
+	'Color'	INTEGER,                                    \
+	'X'	INTEGER NOT NULL,                               \
+	'Y'	INTEGER NOT NULL,                               \
+	'Z'	INTEGER NOT NULL,                               \
+	'Facing'	INTEGER,                                \
+	'Revision'	INTEGER NOT NULL,                       \
+	'Realm'	TEXT NOT NULL,                              \
+	'Amount'	INTEGER,                                \
+	'Layer'	INTEGER,                                    \
+	'Movable'	INTEGER,                                \
+	'Invisible'	INTEGER,                                \
+	'Container'	INTEGER,                                \
+	'OnUseScript'	TEXT,                               \
+	'EquipScript'	TEXT,                               \
+	'UnequipScript'	TEXT,                               \
+	'DecayAt'	INTEGER,                                \
+	'SellPrice'	INTEGER,                                \
+	'BuyPrice'	INTEGER,                                \
+	'Newbie'	INTEGER,                                \
+	'Insured'	INTEGER,                                \
+	'FireResist'	INTEGER,                            \
+	'ColdResist'	INTEGER,                            \
+	'EnergyResist'	INTEGER,                            \
+	'PoisonResist'	INTEGER,                            \
+	'PhysicalResist'	INTEGER,                        \
+	'FireDamage'	INTEGER,                            \
+	'ColdDamage'	INTEGER,                            \
+	'EnergyDamage'	INTEGER,                            \
+	'PoisonDamage'	INTEGER,                            \
+	'PhysicalDamage'	INTEGER,                        \
+	'LowerReagentCost'	INTEGER,                        \
+	'SpellDamageIncrease'	INTEGER,                    \
+	'FasterCasting'	INTEGER,                            \
+	'FasterCastRecovery'	INTEGER,                    \
+	'DefenceIncrease'	INTEGER,                        \
+	'DefenceIncreaseCap'	INTEGER,                    \
+	'LowerManaCost'	INTEGER,                            \
+	'HitChance'	INTEGER,                                \
+	'FireResistCap'	INTEGER,                            \
+	'ColdResistCap'	INTEGER,                            \
+	'EnergyResistCap'	INTEGER,                        \
+	'PhysicalResistCap'	INTEGER,                        \
+	'PoisonResistCap'	INTEGER,                        \
+	'Luck'	INTEGER,                                    \
+	'MaxHp_mod'	INTEGER,                                \
+	'Hp'	INTEGER,                                    \
+	'Quality'	INTEGER,                                \
+	'NameSuffix'	TEXT,                               \
+	'NoDrop'	INTEGER,                                \
+	'FireResistMod'	INTEGER,                            \
+	'ColdResistMod'	INTEGER,                            \
+	'EnergyResistMod'	INTEGER,                        \
+	'PoisonResistMod'	INTEGER,                        \
+	'PhysicalResistMod'	INTEGER,                        \
+	'FireDamageMod'	INTEGER,                            \
+	'ColdDamageMod'	INTEGER,                            \
+	'EnergyDamageMod'	INTEGER,                        \
+	'PoisonDamageMod'	INTEGER,                        \
+	'PhysicalDamageMod'	INTEGER,                        \
+	'LowerReagentCostMod'	INTEGER,                    \
+	'DefenceIncreaseMod'	INTEGER,                    \
+	'DefenceIncreaseCapMod'	INTEGER,                    \
+	'LowerManaCostMod'	INTEGER,                        \
+	'HitChanceMod'	INTEGER,                            \
+	'FireResistCapMod'	INTEGER,                        \
+	'ColdResistCapMod'	INTEGER,                        \
+	'EnergyResistCapMod'	INTEGER,                    \
+	'PhysicalResistCapMod'	INTEGER,                    \
+	'PoisonResistCapMod'	INTEGER,                    \
+	'SpellDamageIncreaseMod'	INTEGER,                \
+	'FasterCastingMod'	INTEGER,                        \
+	'FasterCastRecoveryMod'	INTEGER,                    \
+	'LuckMod'	INTEGER,                                \
+	PRIMARY KEY('ItemId'),                              \
+	FOREIGN KEY('StorageAreaId')                        \
+	REFERENCES 'storage_StorageArea'('StorageAreaId')   \
+	ON UPDATE CASCADE ON DELETE CASCADE                 \
+);                                                      \
+CREATE TABLE IF NOT EXISTS 'storage_StorageArea' (      \
+	'StorageAreaId'	INTEGER NOT NULL,                   \
+	'Name'	TEXT NOT NULL UNIQUE,                       \
+	PRIMARY KEY('StorageAreaId')                        \
+);                                                      \
+CREATE TABLE IF NOT EXISTS 'storage_CProp' (            \
+	'CPropId'	INTEGER NOT NULL,                       \
+	'PropName'	TEXT,                                   \
+	'PropValue'	TEXT,                                   \
+	'ItemId'	INTEGER NOT NULL,                       \
+	PRIMARY KEY('CPropId'),                             \
+	FOREIGN KEY('ItemId')                               \
+	REFERENCES 'storage_Item'('ItemId')                 \
+	ON UPDATE CASCADE ON DELETE CASCADE                 \
+);                                                      \
+CREATE INDEX IF NOT EXISTS 'storage_ItemIndex'          \
+ON 'storage_Item' (                                     \
+	'Name'	ASC,                                        \
+	'Serial'	ASC                                     \
+);                                                      \
+COMMIT;                                                 \
+  ";
+
+  sqlite3_stmt* stmt;
+  rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  if ( rc != SQLITE_OK )
+  {
+    Finish( stmt );
+    return false;
+  }
+  rc = sqlite3_step( stmt );
+
+  if ( rc != SQLITE_DONE )
+  {
+    Finish( stmt );
+    return false;
+  }
+  else if ( sqlite3_changes( db ) == 0 )
+  {
+    ERROR_PRINT << "Storage: No schema created.\n";
+    Finish( stmt );
+    return false;
+  }
+  Finish( stmt, 0 );
+  return true;
 }
 
 }  // namespace Core

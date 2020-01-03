@@ -41,6 +41,7 @@ public:
   ~SQLiteDB();
 
   sqlite3* db = NULL;
+  std::string prefix_table = "storage_";
   std::string table_Item = "Item";
   std::string table_StorageArea = "StorageArea";
 
@@ -52,6 +53,7 @@ public:
   bool AddCProp( Items::Item* item, const int last_rowid );
   bool RemoveCProp( const int ItemId );
   bool UpdateItem( Items::Item* item, const std::string& areaName );
+  bool CreateDatabase( const std::string& dbpath );
 
   int GetIdArea( const std::string& name );
   int GetItemId( const std::string& name );
