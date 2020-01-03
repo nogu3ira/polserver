@@ -14,6 +14,7 @@
 @rmdir /S /Q curl
 @rmdir /S /Q kaitai.dir
 @rmdir /S /Q sqlite
+@rmdir /S /Q module_defs
 @del /S /F *.vcxproj*
 @del /S /F *.cmake
 @del /S /F *.h
