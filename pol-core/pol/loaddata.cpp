@@ -178,7 +178,7 @@ void insert_deferred_items()
                     << ", but that container cannot be found.\n";
 
         // Austin - Aug. 10, 2006
-        // Removes the object if ignore_load_errors is enabled and the character can't be found.
+        // Removes the object if ignore_load_errors is enabled and the container can't be found.
         if ( !Plib::systemstate.config.ignore_load_errors )
           throw std::runtime_error( "Data file integrity error" );
         else
