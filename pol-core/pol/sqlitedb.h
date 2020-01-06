@@ -49,7 +49,7 @@ public:
   bool ExistInStorage( const u32 serial, const std::string& table_name );
   bool RemoveItem( const std::string& name );
   bool RemoveItem( const u32 serial );
-  bool AddItem( Items::Item* item, const std::string& areaName );
+  bool AddItem( Items::Item* item, const std::string& areaName, const u32 container_serial = 0 );
   bool AddCProp( Items::Item* item, const int last_rowid );
   bool RemoveCProp( const int ItemId );
   bool UpdateItem( Items::Item* item, const std::string& areaName );
