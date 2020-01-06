@@ -1262,8 +1262,7 @@ bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName, const u3
   auto Invisible = ( item->invisible() != item->default_invisible() )
                        ? std::to_string( item->invisible() )
                        : "NULL";
-  auto Container =
-      ( item->container != nullptr ) ? std::to_string( item->container->serial ) : "NULL";
+  auto Container = ( container_serial != 0 ) ? std::to_string( container_serial ) : "NULL";
   auto OnUseScript = ( !item->on_use_script_.get().empty() ) ? item->on_use_script_.get() : "NULL";
   auto EquipScript = ( item->equip_script_ != item->getItemdescEquipScript() )
                          ? item->equip_script_.get()
