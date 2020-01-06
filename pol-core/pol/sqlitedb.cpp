@@ -64,9 +64,24 @@ void SQLiteDB::insert_root_item( Items::Item* item, const std::string& areaName 
   {
     if ( !SQLiteDB::AddItem( item, areaName ) )
     {
-      ERROR_PRINT << "no added in BD.\n";
+      ERROR_PRINT << "insert_root_item: no added in BD.\n";
+      return;
     }
-    ERROR_PRINT << "yes added in BD.\n";
+    ERROR_PRINT << "insert_root_item: yes added in BD.\n";
+  }
+}
+
+// Insert item only in SQLite Database. Don't load item in memory.
+void SQLiteDB::insert_item( Items::Item* item, const std::string& areaName, const u32 container_serial )
+{
+  if ( Plib::systemstate.config.enable_sqlite )
+  {
+    if ( !SQLiteDB::AddItem( item, areaName, container_serial ) )
+    {
+      ERROR_PRINT << "insert_item: no added in BD.\n";
+      return;
+    }
+    ERROR_PRINT << "insert_item: yes added in BD.\n";
   }
 }
 
@@ -1195,7 +1210,7 @@ bool SQLiteDB::AddCProp( Items::Item* item, const int last_rowid )
   return true;
 }
 
-bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName )
+bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName, const u32 container_serial )
 {
   auto ItemId = "NULL";
   auto StorageAreaId = std::to_string( GetIdArea( areaName ) );

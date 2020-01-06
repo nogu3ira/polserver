@@ -149,6 +149,8 @@ void StorageArea::load_item( Clib::ConfigElem& elem, const std::string& areaName
       {
         gamestate.sqlitedb.insert_root_item( item, areaName );
       }
+      // avoid duplicate container item
+      item->destroy();
     }
     else
     {
@@ -160,10 +162,40 @@ void StorageArea::load_item( Clib::ConfigElem& elem, const std::string& areaName
     // this is an item inside a container
     if ( Plib::systemstate.config.enable_sqlite )
     {
-      if ( !gamestate.sqlitedb.ExistInStorage( container_serial, gamestate.sqlitedb.table_Item ) )
+      // need check if container exists and item not exists.
+      if ( gamestate.sqlitedb.ExistInStorage( container_serial, gamestate.sqlitedb.table_Item ) && 
+          !gamestate.sqlitedb.ExistInStorage( serial, gamestate.sqlitedb.table_Item ) )
       {
-        gamestate.sqlitedb.insert_root_item( item, areaName );
+        gamestate.sqlitedb.insert_item( item, areaName, container_serial );
       }
+      // what? what is this item doing here?
+      else if ( !gamestate.sqlitedb.ExistInStorage( container_serial, gamestate.sqlitedb.table_Item ) && 
+                !gamestate.sqlitedb.ExistInStorage( serial, gamestate.sqlitedb.table_Item ) )
+      {
+        // if a Character, okay.
+        if ( IsCharacter( container_serial ) )
+        {
+          defer_item_insertion( item, container_serial );
+          return;
+        }
+        else
+        {
+          ERROR_PRINT << "Item 0x" << fmt::hexu( item->serial )
+                      << " is supposed to be in container 0x" << fmt::hexu( container_serial )
+                      << ", but that container cannot be found.\n";
+
+          // Austin - Aug. 10, 2006
+          // Removes the object if ignore_load_errors is enabled and the container can't be found.
+          if ( !Plib::systemstate.config.ignore_load_errors )
+            throw std::runtime_error( "Data file integrity error" );
+          else
+          {
+            ERROR_PRINT << "Ignore load errors enabled. Removing object.\n";
+          }
+        }
+      }
+      // avoid duplicate item
+      item->destroy();
     }
     else
     {
