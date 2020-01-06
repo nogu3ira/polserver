@@ -816,7 +816,7 @@ bool SQLiteDB::UpdateItem( Items::Item* item, const std::string& areaName )
 {
   //auto ItemId = "NULL";
   auto StorageAreaId = std::to_string( GetIdArea( areaName ) );
-  auto Name = item->name();
+  auto Name = !item->name_.get().empty() ? item->name_.get() : "NULL";
   auto Serial = std::to_string( item->serial );
   auto ObjType = std::to_string( item->objtype_ );
   auto Graphic = std::to_string( item->graphic );
@@ -1244,7 +1244,7 @@ bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName, const u3
 {
   auto ItemId = "NULL";
   auto StorageAreaId = std::to_string( GetIdArea( areaName ) );
-  auto Name = item->name();
+  auto Name = !item->name_.get().empty() ? item->name_.get() : "NULL";
   auto Serial = std::to_string( item->serial );
   auto ObjType = std::to_string( item->objtype_ );
   auto Graphic = std::to_string( item->graphic );
