@@ -653,9 +653,13 @@ void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
   }
   while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
   {
+    ERROR_PRINT << "GetItem: dentro do while.\n";
     i->ItemId = sqlite3_column_int( stmt, 0 );
     i->StorageAreaId = sqlite3_column_int( stmt, 1 );
-    i->Name = std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 2 ) ) );
+
+    if ( sqlite3_column_type(stmt, 2) != SQLITE_NULL )
+      i->Name = std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 2 ) ) );
+
     i->Serial = sqlite3_column_int( stmt, 3 );
     i->ObjType = sqlite3_column_int( stmt, 4 );
     i->Graphic = sqlite3_column_int( stmt, 5 );
@@ -665,18 +669,28 @@ void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
     i->Z = sqlite3_column_int( stmt, 9 );
     i->Facing = sqlite3_column_int( stmt, 10 );
     i->Revision = sqlite3_column_int( stmt, 11 );
-    i->Realm = std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 12 ) ) );
+
+    if ( sqlite3_column_type(stmt, 12) != SQLITE_NULL )
+      i->Realm = std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 12 ) ) );
+
     i->Amount = sqlite3_column_int( stmt, 13 );
     i->Layer = sqlite3_column_int( stmt, 14 );
     i->Movable = sqlite3_column_int( stmt, 15 );
     i->Invisible = sqlite3_column_int( stmt, 16 );
     i->Container = sqlite3_column_int( stmt, 17 );
-    i->OnUseScript =
+
+    if ( sqlite3_column_type(stmt, 18) != SQLITE_NULL )
+      i->OnUseScript =
         std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 18 ) ) );
-    i->EquipScript =
+
+    if ( sqlite3_column_type(stmt, 19) != SQLITE_NULL )
+      i->EquipScript =
         std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 19 ) ) );
-    i->UnequipScript =
+
+    if ( sqlite3_column_type(stmt, 20) != SQLITE_NULL )
+      i->UnequipScript =
         std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 20 ) ) );
+
     i->DecayAt = sqlite3_column_int( stmt, 21 );
     i->SellPrice = sqlite3_column_int( stmt, 22 );
     i->BuyPrice = sqlite3_column_int( stmt, 23 );
@@ -709,7 +723,10 @@ void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
     i->MaxHp_mod = sqlite3_column_int( stmt, 50 );
     i->Hp = sqlite3_column_int( stmt, 51 );
     i->Quality = sqlite3_column_int( stmt, 52 );
-    i->NameSuffix = std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 53 ) ) );
+
+    if ( sqlite3_column_type(stmt, 53) != SQLITE_NULL )
+      i->NameSuffix = std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 53 ) ) );
+
     i->NoDrop = sqlite3_column_int( stmt, 54 );
     i->FireResistMod = sqlite3_column_int( stmt, 55 );
     i->ColdResistMod = sqlite3_column_int( stmt, 56 );
