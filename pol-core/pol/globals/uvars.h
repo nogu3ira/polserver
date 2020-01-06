@@ -156,9 +156,8 @@ public:
 
   std::vector<Menu> menus;
 
-  Storage storage;
-
   SQLiteDB sqlitedb;
+  Storage storage;
 
   Parties parties;
   Guilds guilds;

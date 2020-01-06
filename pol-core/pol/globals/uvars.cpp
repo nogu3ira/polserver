@@ -77,8 +77,7 @@ GameState gamestate;
 
 
 GameState::GameState()
-    : sqlitedb(),
-	  cmdlevels(),
+    : cmdlevels(),
       npc_templates(),
       npc_template_elems(),
       // Using force allocate because this is inited before reading global CProp setting
@@ -92,6 +91,7 @@ GameState::GameState()
       weatherdef( nullptr ),
       musicdef( nullptr ),
       menus(),
+      sqlitedb(),
       storage(),
       parties(),
       guilds(),
