@@ -65,7 +65,7 @@ public:
   StorageArea* find_area( const std::string& name );
   StorageArea* create_area( const std::string& name );
   StorageArea* create_area( Clib::ConfigElem& elem );
-  std::string get_area_name( Clib::ConfigElem& elem );
+  StorageArea* create_area( Clib::ConfigElem& elem, std::string& areaName );
   void on_delete_realm( Realms::Realm* realm );
 
   void print( Clib::StreamWriter& sw ) const;

@@ -287,17 +287,19 @@ StorageArea* Storage::create_area( Clib::ConfigElem& elem )
   }
 }
 
-std::string Storage::get_area_name( Clib::ConfigElem& elem )
+StorageArea* Storage::create_area( Clib::ConfigElem& elem, std::string& areaName )
 {
   const char* rest = elem.rest();
   if ( rest != nullptr && rest[0] )
   {
-    return rest;
+    areaName = rest;
+    return create_area( rest );
   }
   else
   {
     std::string name = elem.remove_string( "NAME" );
-    return name;
+    areaName = name;
+    return create_area( name );
   }
 }
 
@@ -356,8 +358,7 @@ void Storage::read( Clib::ConfigFile& cf )
     }
     if ( elem.type_is( "StorageArea" ) )
     {
-      area = create_area( elem );
-      areaName = get_area_name( elem );
+      area = create_area( elem, areaName );
     }
     else if ( elem.type_is( "Item" ) )
     {
