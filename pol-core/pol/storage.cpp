@@ -382,7 +382,15 @@ void Storage::read( Clib::ConfigFile& cf )
   Clib::ConfigElem elem;
   std::string areaName = "";
 
+  bool existDB = gamestate.sqlitedb.ExistDB();
+
+  if ( gamestate.sqlitedb.db == NULL )
+    gamestate.sqlitedb.Connect();
+
   clock_t start = clock();
+
+  if ( !existDB )
+    gamestate.sqlitedb.BeginTransaction();
 
   while ( cf.read( elem ) )
   {
@@ -422,6 +430,9 @@ void Storage::read( Clib::ConfigFile& cf )
     }
     ++nobjects;
   }
+
+  if ( !existDB )
+    gamestate.sqlitedb.EndTransaction();
 
   clock_t end = clock();
   int ms = static_cast<int>( ( end - start ) * 1000.0 / CLOCKS_PER_SEC );

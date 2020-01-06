@@ -43,7 +43,9 @@ public:
   sqlite3* db = NULL;
   std::string prefix_table = "storage_";
   std::string table_Item = "Item";
+  std::string table_CProp = "CProp";
   std::string table_StorageArea = "StorageArea";
+  std::string dbpath = "data/database.db";
 
   bool ExistInStorage( const std::string& name, const std::string& table_name );
   bool ExistInStorage( const u32 serial, const std::string& table_name );
@@ -53,7 +55,8 @@ public:
   bool AddCProp( Items::Item* item, const int last_rowid );
   bool RemoveCProp( const int ItemId );
   bool UpdateItem( Items::Item* item, const std::string& areaName );
-  bool CreateDatabase( const std::string& dbpath );
+  bool CreateDatabase();
+  bool ExistDB();
 
   int GetIdArea( const std::string& name );
   int GetItemId( const std::string& name );
@@ -75,6 +78,8 @@ public:
 
   void UpdateDataStorage( std::map<Items::Item*, std::string> modified_storage );
   void DeleteDataStorage();
+  void BeginTransaction();
+  void EndTransaction();
 
   Items::Item* read_item( const std::string& name );
   Items::Item* create_item_ref( struct ItemInfoDB* i );

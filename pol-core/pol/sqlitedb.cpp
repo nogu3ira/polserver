@@ -1,6 +1,10 @@
-/** @file
+/** @file sqlitedb.cpp made by Nix (ChaosAge/Mystic)
  *
  * @par History
+ * TODO -> 1) make insert/update Item and CProp using BEGIN TRANSATION/COMMIT sql
+ *      -> 2) also when SaveWorldState()
+ *      -> 3) check sqlite3_column_type when internal type is NULL and requested type is INTEGER
+ *            to not convert in 0.
  */
 
 
@@ -407,37 +411,45 @@ Items::Item* SQLiteDB::create_item_ref( struct ItemInfoDB* i )
   return item;
 }
 
+bool SQLiteDB::ExistDB()
+{
+  gamestate.sqlitedb.dbpath = Plib::systemstate.config.world_data_path + "database.db";
+  if ( Clib::FileExists( gamestate.sqlitedb.dbpath ) )
+    return true;
+
+  return false;
+}
+
 void SQLiteDB::Connect()
 {
-  std::string dbpath = Plib::systemstate.config.world_data_path + "database.db";
-
-  if ( !Clib::FileExists( dbpath ) )
+  if ( !SQLiteDB::ExistDB() )
   {
-    if ( !SQLiteDB::CreateDatabase( dbpath ) )
-      throw std::runtime_error( "Storage: Can't create database " + dbpath );
+    if ( !SQLiteDB::CreateDatabase() )
+      throw std::runtime_error( "Storage: Can't create database " + gamestate.sqlitedb.dbpath );
   }
 
-  int rc = sqlite3_open( dbpath.c_str(), &db );
+  int rc = sqlite3_open( gamestate.sqlitedb.dbpath.c_str(), &gamestate.sqlitedb.db );
   if ( rc )
   {
-    ERROR_PRINT << "Storage: Can't open database: " << sqlite3_errmsg( db ) << ".\n";
-    sqlite3_close( db );
-    throw std::runtime_error( "Storage: Can't open database " + dbpath );
+    ERROR_PRINT << "Storage: Can't open database: " << sqlite3_errmsg( gamestate.sqlitedb.db ) << ".\n";
+    throw std::runtime_error( "Storage: Can't open database " + gamestate.sqlitedb.dbpath );
   }
+
+  INFO_PRINT << "SQLite database connected!\n";
 }
 
 void SQLiteDB::Finish( sqlite3_stmt*& stmt, int x )
 {
   if ( x )
   {
-    ERROR_PRINT << "Storage: " << sqlite3_errmsg( db ) << ".\n";
+    ERROR_PRINT << "Storage: " << sqlite3_errmsg( gamestate.sqlitedb.db ) << ".\n";
   }
   sqlite3_finalize( stmt );
 }
 
 void SQLiteDB::Close()
 {
-  sqlite3_close( db );
+  sqlite3_close( gamestate.sqlitedb.db );
 }
 
 bool SQLiteDB::ExistInStorage( const std::string& name, const std::string& table_name )
@@ -453,7 +465,7 @@ bool SQLiteDB::ExistInStorage( const std::string& name, const std::string& table
   sqlquery += "' LIMIT 1) AS result";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
     Finish( stmt );
@@ -485,7 +497,7 @@ bool SQLiteDB::ExistInStorage( const u32 serial, const std::string& table_name )
   sqlquery += "' LIMIT 1) AS result";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
     Finish( stmt );
@@ -509,7 +521,7 @@ void SQLiteDB::ListStorageAreas()
   std::string sqlquery = "SELECT Name FROM StorageArea";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
     Finish( stmt );
@@ -538,7 +550,7 @@ void SQLiteDB::AddStorageArea( const std::string& name )
   sqlquery += "')";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
     Finish( stmt );
@@ -551,7 +563,7 @@ void SQLiteDB::AddStorageArea( const std::string& name )
     Finish( stmt );
     return;
   }
-  else if ( sqlite3_changes( db ) == 0 )
+  else if ( sqlite3_changes( gamestate.sqlitedb.db ) == 0 )
   {
     ERROR_PRINT << "Storage: No data inserted.\n";
     Finish( stmt );
@@ -569,7 +581,7 @@ int SQLiteDB::GetIdArea( const std::string& name )
   sqlquery += "'";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
     Finish( stmt );
@@ -597,7 +609,7 @@ int SQLiteDB::GetItemId( const std::string& name )
   sqlquery += "'";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
     Finish( stmt );
@@ -623,9 +635,10 @@ void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
   sqlquery += "' LIMIT 1";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
+    ERROR_PRINT << "GetItem: algum problema no prepare_query.\n";
     Finish( stmt );
     return;
   }
@@ -733,7 +746,7 @@ bool SQLiteDB::RemoveItem( const std::string& name )
   sqlquery += "'";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
     Finish( stmt );
@@ -746,7 +759,7 @@ bool SQLiteDB::RemoveItem( const std::string& name )
     Finish( stmt );
     return false;
   }
-  else if ( sqlite3_changes( db ) == 0 )
+  else if ( sqlite3_changes( gamestate.sqlitedb.db ) == 0 )
   {
     ERROR_PRINT << "Storage: No data deleted. Name: " << name << "\n";
     Finish( stmt );
@@ -765,7 +778,7 @@ bool SQLiteDB::RemoveItem( const u32 serial )
   sqlquery += "'";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
     Finish( stmt );
@@ -778,7 +791,7 @@ bool SQLiteDB::RemoveItem( const u32 serial )
     Finish( stmt );
     return false;
   }
-  else if ( sqlite3_changes( db ) == 0 )
+  else if ( sqlite3_changes( gamestate.sqlitedb.db ) == 0 )
   {
     ERROR_PRINT << "Storage: No data deleted. Serial: " << std::to_string(serial) << "\n";
     Finish( stmt );
@@ -1013,7 +1026,7 @@ bool SQLiteDB::UpdateItem( Items::Item* item, const std::string& areaName )
   s += "'";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( db, s.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, s.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
     Finish( stmt );
@@ -1026,7 +1039,7 @@ bool SQLiteDB::UpdateItem( Items::Item* item, const std::string& areaName )
     Finish( stmt );
     return false;
   }
-  else if ( sqlite3_changes( db ) == 0 )
+  else if ( sqlite3_changes( gamestate.sqlitedb.db ) == 0 )
   {
     ERROR_PRINT << "Storage: No Item updated. Serial: " << Serial << "\n";
     Finish( stmt );
@@ -1095,7 +1108,7 @@ int SQLiteDB::Last_Rowid()
   std::string sqlquery = "SELECT last_insert_rowid()";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
     Finish( stmt );
@@ -1123,7 +1136,7 @@ bool SQLiteDB::RemoveCProp( const int ItemId )
   sqlquery += "'";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
     Finish( stmt );
@@ -1136,7 +1149,7 @@ bool SQLiteDB::RemoveCProp( const int ItemId )
     Finish( stmt );
     return false;
   }
-  else if ( sqlite3_changes( db ) == 0 )
+  else if ( sqlite3_changes( gamestate.sqlitedb.db ) == 0 )
   {
     ERROR_PRINT << "Storage: No CProp deleted. ItemId: " << std::to_string( ItemId ) << "\n";
     Finish( stmt );
@@ -1189,7 +1202,7 @@ bool SQLiteDB::AddCProp( Items::Item* item, const int last_rowid )
     s += ")";
 
     sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2( db, s.c_str(), -1, &stmt, NULL );
+    int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, s.c_str(), -1, &stmt, NULL );
     if ( rc != SQLITE_OK )
     {
       Finish( stmt );
@@ -1202,7 +1215,7 @@ bool SQLiteDB::AddCProp( Items::Item* item, const int last_rowid )
       Finish( stmt );
       return false;
     }
-    else if ( sqlite3_changes( db ) == 0 )
+    else if ( sqlite3_changes( gamestate.sqlitedb.db ) == 0 )
     {
       ERROR_PRINT << "Storage: No CProp inserted.\n";
       Finish( stmt );
@@ -1436,7 +1449,7 @@ bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName, const u3
   s += ")";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( db, s.c_str(), -1, &stmt, NULL );
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, s.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
     Finish( stmt );
@@ -1449,7 +1462,7 @@ bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName, const u3
     Finish( stmt );
     return false;
   }
-  else if ( sqlite3_changes( db ) == 0 )
+  else if ( sqlite3_changes( gamestate.sqlitedb.db ) == 0 )
   {
     ERROR_PRINT << "Storage: No Item inserted.\n";
     Finish( stmt );
@@ -1501,13 +1514,16 @@ void SQLiteDB::DeleteDataStorage()
   }
 }
 
-bool SQLiteDB::CreateDatabase( const std::string& dbpath )
+bool SQLiteDB::CreateDatabase()
 {
-  int rc = sqlite3_open_v2( dbpath.c_str(), &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL);
+  INFO_PRINT << " SQLite enabled.\n";
+  INFO_PRINT << "\n  data/database.db: NOT FOUND!\n";
+  INFO_PRINT << "\nCreating the SQLite database... ";
+
+  int rc = sqlite3_open( gamestate.sqlitedb.dbpath.c_str(), &gamestate.sqlitedb.db );
   if ( rc )
   {
-    ERROR_PRINT << "Storage: Can't create database: " << sqlite3_errmsg( db ) << ".\n";
-    sqlite3_close( db );
+    ERROR_PRINT << "\nSQLiteDB: Can't open database.db: " << sqlite3_errmsg( gamestate.sqlitedb.db ) << ".\n";
     return false;
   }
 
@@ -1622,28 +1638,35 @@ ON 'storage_Item' (                                     \
 COMMIT;                                                 \
   ";
 
-  sqlite3_stmt* stmt;
-  rc = sqlite3_prepare_v2( db, sqlquery.c_str(), -1, &stmt, NULL );
-  if ( rc != SQLITE_OK )
-  {
-    Finish( stmt );
+  char* msgError;
+  rc = sqlite3_exec(gamestate.sqlitedb.db, sqlquery.c_str(), NULL, 0, &msgError); 
+  if (rc != SQLITE_OK)
+  { 
+    ERROR_PRINT << "Error Insert!\n";
+    sqlite3_free(msgError);
+    SQLiteDB::Close();
     return false;
   }
-  rc = sqlite3_step( stmt );
 
-  if ( rc != SQLITE_DONE )
-  {
-    Finish( stmt );
-    return false;
-  }
-  else if ( sqlite3_changes( db ) == 0 )
-  {
-    ERROR_PRINT << "Storage: No schema created.\n";
-    Finish( stmt );
-    return false;
-  }
-  Finish( stmt, 0 );
+  SQLiteDB::Close();
+  INFO_PRINT << "Done!\n";
   return true;
+}
+
+void SQLiteDB::BeginTransaction()
+{
+  if ( Plib::systemstate.config.enable_sqlite )
+  {
+    sqlite3_exec(gamestate.sqlitedb.db, "BEGIN TRANSACTION", NULL, NULL, NULL);
+  }
+}
+
+void SQLiteDB::EndTransaction()
+{
+  if ( Plib::systemstate.config.enable_sqlite )
+  {
+    sqlite3_exec(gamestate.sqlitedb.db, "END TRANSACTION", NULL, NULL, NULL);
+  }
 }
 
 }  // namespace Core
