@@ -95,7 +95,7 @@ bool SQLiteDB::check_and_add_root_item( Items::Item* item, const std::string& ar
 {
   if ( Plib::systemstate.config.enable_sqlite )
   {
-    if ( !SQLiteDB::ExistInStorage( item->name(), gamestate.sqlitedb.table_Item ) )
+    if ( !SQLiteDB::ExistInStorage( item->name(), table_Item ) )
     {
       if ( !SQLiteDB::AddItem( item, areaName ) )
       {
@@ -545,7 +545,8 @@ void SQLiteDB::AddStorageArea( const std::string& name )
 {
   std::string sqlquery = "INSERT INTO ";
   sqlquery += prefix_table;
-  sqlquery += "StorageArea (Name) VALUES('";
+  sqlquery += table_StorageArea;
+  sqlquery += " (Name) VALUES('";
   sqlquery += name;
   sqlquery += "')";
 
@@ -575,8 +576,10 @@ void SQLiteDB::AddStorageArea( const std::string& name )
 int SQLiteDB::GetIdArea( const std::string& name )
 {
   int StorageAreaId = 0;
-  std::string sqlquery = "SELECT StorageAreaId FROM StorageArea ";
-  sqlquery += "WHERE Name='";
+  std::string sqlquery = "SELECT StorageAreaId FROM ";
+  sqlquery += prefix_table;
+  sqlquery += table_StorageArea;
+  sqlquery += " WHERE Name='";
   sqlquery += name;
   sqlquery += "'";
 
@@ -603,8 +606,10 @@ int SQLiteDB::GetIdArea( const std::string& name )
 int SQLiteDB::GetItemId( const std::string& name )
 {
   int ItemId = 0;
-  std::string sqlquery = "SELECT ItemId FROM Item ";
-  sqlquery += "WHERE Serial='";
+  std::string sqlquery = "SELECT ItemId FROM ";
+  sqlquery += prefix_table;
+  sqlquery += table_Item;
+  sqlquery += " WHERE Serial='";
   sqlquery += name;
   sqlquery += "'";
 
@@ -630,7 +635,11 @@ int SQLiteDB::GetItemId( const std::string& name )
 
 void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
 {
-  std::string sqlquery = "SELECT * FROM Item WHERE Name = '";
+  ERROR_PRINT << "GetItem: inicio do metodo.\n";
+  std::string sqlquery = "SELECT * FROM ";
+  sqlquery += prefix_table;
+  sqlquery += table_Item;
+  sqlquery += " WHERE Name = '";
   sqlquery += name;
   sqlquery += "' LIMIT 1";
 
@@ -741,7 +750,8 @@ bool SQLiteDB::RemoveItem( const std::string& name )
 {
   std::string sqlquery = "DELETE FROM ";
   sqlquery += prefix_table;
-  sqlquery += "Item WHERE Name = '";
+  sqlquery += table_Item;
+  sqlquery += " WHERE Name = '";
   sqlquery += name;
   sqlquery += "'";
 
@@ -773,7 +783,8 @@ bool SQLiteDB::RemoveItem( const u32 serial )
 {
   std::string sqlquery = "DELETE FROM ";
   sqlquery += prefix_table;
-  sqlquery += "Item WHERE Serial = '";
+  sqlquery += table_Item;
+  sqlquery += " WHERE Serial = '";
   sqlquery += std::to_string(serial);
   sqlquery += "'";
 
@@ -941,7 +952,8 @@ bool SQLiteDB::UpdateItem( Items::Item* item, const std::string& areaName )
 
   std::string s = "UPDATE ";
   s += prefix_table;
-  s += "Item SET";
+  s += table_Item;
+  s += " SET";
   //query_value2( s, ItemId );
   query_value2( s, "StorageAreaId", StorageAreaId );
   query_value2( s, "Name", Name );
@@ -1131,7 +1143,8 @@ bool SQLiteDB::RemoveCProp( const int ItemId )
 {
   std::string sqlquery = "DELETE FROM ";
   sqlquery += prefix_table;
-  sqlquery += "CProp WHERE ItemId = '";
+  sqlquery += table_CProp;
+  sqlquery += " WHERE ItemId = '";
   sqlquery += std::to_string( ItemId );
   sqlquery += "'";
 
@@ -1194,7 +1207,8 @@ bool SQLiteDB::AddCProp( Items::Item* item, const int last_rowid )
   {
     std::string s = "INSERT INTO ";
     s += prefix_table;
-    s += "CProp VALUES(";
+    s += table_CProp;
+    s += " VALUES(";
     query_value( s, CPropId );
     query_value( s, kv.first );
     query_value( s, kv.second );
@@ -1366,7 +1380,8 @@ bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName, const u3
 
   std::string s = "INSERT INTO ";
   s += prefix_table;
-  s += "Item VALUES(";
+  s += table_Item;
+  s += " VALUES(";
   query_value( s, ItemId );
   query_value( s, StorageAreaId );
   query_value( s, Name );
