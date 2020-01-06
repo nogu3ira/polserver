@@ -43,6 +43,7 @@ using namespace Bscript;
 
 SQLiteDB::SQLiteDB()
 {
+  ERROR_PRINT << "dentro do construtor sqlitedb.\n";
   if ( Plib::systemstate.config.enable_sqlite )
   {
     SQLiteDB::Connect();
@@ -94,10 +95,10 @@ bool SQLiteDB::check_and_add_root_item( Items::Item* item, const std::string& ar
     {
       if ( !SQLiteDB::AddItem( item, areaName ) )
       {
-        ERROR_PRINT << "no added in BD.\n";
+        ERROR_PRINT << "check_and_add_root_item: no added in BD.\n";
         return false;
       }
-      ERROR_PRINT << "yes added in BD.\n";
+      ERROR_PRINT << "check_and_add_root_item: yes added in BD.\n";
       return true;
     }
     return false;
@@ -715,10 +716,12 @@ void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
   }
   if ( rc != SQLITE_DONE )
   {
+    ERROR_PRINT << "GetItem: algum problema no select.\n";
     Finish( stmt );
     return;
   }
   Finish( stmt, 0 );
+  ERROR_PRINT << "GetItem: OK.\n";
 }
 
 bool SQLiteDB::RemoveItem( const std::string& name )

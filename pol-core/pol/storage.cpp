@@ -75,7 +75,7 @@ Items::Item* StorageArea::find_root_item( const std::string& name )
   {
     if ( gamestate.sqlitedb.ExistInStorage( name, gamestate.sqlitedb.table_Item ) )
     {
-      ERROR_PRINT << "yes found in BD.\n";
+      ERROR_PRINT << "find_root_item: yes found in BD.\n";
       StorageArea::create_ItemCache( name );
 
       itr = _items.find( name );
@@ -85,7 +85,7 @@ Items::Item* StorageArea::find_root_item( const std::string& name )
       }
       return nullptr;
     }
-    ERROR_PRINT << "no found in BD.\n";
+    ERROR_PRINT << "find_root_item: no found in BD.\n";
   }
   return nullptr;
 }
@@ -99,10 +99,10 @@ bool StorageArea::delete_root_item( const std::string& name )
     {
       if ( !gamestate.sqlitedb.RemoveItem( name ) )
       {
-        ERROR_PRINT << "no deleted in BD.\n";
+        ERROR_PRINT << "delete_root_item: no deleted in BD.\n";
         return false;
       }
-      ERROR_PRINT << "yes deleted in BD.\n";
+      ERROR_PRINT << "delete_root_item: yes deleted in BD.\n";
     }
     Items::Item* item = ( *itr ).second;
     item->destroy();
@@ -218,18 +218,18 @@ StorageArea* Storage::find_area( const std::string& name )
   AreaCont::iterator itr = areas.find( name );
   if ( itr == areas.end() )
   {
-    ERROR_PRINT << "no found in areas.\n";
+    ERROR_PRINT << "find_area: no found in areas.\n";
 
     if ( Plib::systemstate.config.enable_sqlite )
     {
       if ( !gamestate.sqlitedb.ExistInStorage( name, gamestate.sqlitedb.table_StorageArea ) )
       {
-        ERROR_PRINT << "no found in BD.\n";
+        ERROR_PRINT << "find_area: no found in BD.\n";
         return nullptr;
       }
       else
       {
-        ERROR_PRINT << "yes found in BD.\n";
+        ERROR_PRINT << "find_area: yes found in BD.\n";
         return Storage::create_areaCache( name );
       }
     }
@@ -240,19 +240,22 @@ StorageArea* Storage::find_area( const std::string& name )
   }
   else
   {
-    ERROR_PRINT << "yes found in areas.\n";
+    ERROR_PRINT << "find_area: yes found in areas.\n";
     return ( *itr ).second;
   }
 }
 
 void StorageArea::create_ItemCache( const std::string& name )
 {
+  ERROR_PRINT << "create_ItemCache: tentando criar o item.\n";
   // Get item from SQLite DB
   // and transform to Item ref
   Items::Item* temp_item = gamestate.sqlitedb.read_item( name );
 
+  ERROR_PRINT << "create_ItemCache: item temporario criado.\n";
   // Add item in memory
   insert_root_item( temp_item );
+  ERROR_PRINT << "create_ItemCache: inserido no root item.\n";
 }
 
 StorageArea* Storage::create_area( const std::string& name )
@@ -260,13 +263,13 @@ StorageArea* Storage::create_area( const std::string& name )
   AreaCont::iterator itr = areas.find( name );
   if ( itr == areas.end() )
   {
-    ERROR_PRINT << "no found in areas.\n";
+    ERROR_PRINT << "create_area: no found in areas.\n";
 
     if ( Plib::systemstate.config.enable_sqlite )
     {
       if ( !gamestate.sqlitedb.ExistInStorage( name, gamestate.sqlitedb.table_StorageArea ) )
       {
-        ERROR_PRINT << "no found in BD.\n";
+        ERROR_PRINT << "create_area: no found in BD. Creating into DB.\n";
         // Create into DB
         gamestate.sqlitedb.AddStorageArea( name );
         // Add into AreaCont
@@ -274,7 +277,7 @@ StorageArea* Storage::create_area( const std::string& name )
       }
       else
       {
-        ERROR_PRINT << "yes found in BD.\n";
+        ERROR_PRINT << "create_area: yes found in BD.\n";
         // Add into AreaCont
         return Storage::create_areaCache( name );
       }
