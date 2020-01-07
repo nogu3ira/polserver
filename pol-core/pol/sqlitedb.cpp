@@ -1491,6 +1491,7 @@ bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName, const u3
   {
     ERROR_PRINT << "Storage: No lastRowId found.\n";
     Finish( stmt );
+    SQLiteDB::RollbackTransaction();
     throw std::runtime_error( "Data file integrity error" );
   }
 
@@ -1498,6 +1499,7 @@ bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName, const u3
   {
     ERROR_PRINT << "Storage: No CProp inserted.\n";
     Finish( stmt );
+    SQLiteDB::RollbackTransaction();
     throw std::runtime_error( "Data file integrity error" );
   }
 
@@ -1508,12 +1510,17 @@ void SQLiteDB::UpdateDataStorage( std::map<Items::Item*, std::string> modified_s
 {
   if ( Plib::systemstate.config.enable_sqlite )
   {
+    SQLiteDB::BeginTransaction();
     std::map<Items::Item*, std::string>::iterator it = modified_storage.begin();
     for (it=modified_storage.begin(); it!=modified_storage.end(); ++it)
     {
       if( !SQLiteDB::UpdateItem( it->first, it->second ) )
+      {
+        SQLiteDB::RollbackTransaction();
         throw std::runtime_error( "Data file (Storage) integrity error on update item" );
+      }
     }
+    SQLiteDB::EndTransaction();
   }
 }
 
@@ -1521,11 +1528,16 @@ void SQLiteDB::DeleteDataStorage()
 {
   if ( Plib::systemstate.config.enable_sqlite )
   {
+    SQLiteDB::BeginTransaction();
     for ( unsigned i = 0; i < objStorageManager.deleted_serials.size(); ++i )
     {
       if( !SQLiteDB::RemoveItem( objStorageManager.deleted_serials[i] ) )
+      {
+        SQLiteDB::RollbackTransaction();
         throw std::runtime_error( "Data file (Storage) integrity error on remove item" );
+      }
     }
+    SQLiteDB::EndTransaction();
   }
 }
 
@@ -1671,17 +1683,19 @@ COMMIT;                                                 \
 void SQLiteDB::BeginTransaction()
 {
   if ( Plib::systemstate.config.enable_sqlite )
-  {
     sqlite3_exec(gamestate.sqlitedb.db, "BEGIN TRANSACTION", NULL, NULL, NULL);
-  }
 }
 
 void SQLiteDB::EndTransaction()
 {
   if ( Plib::systemstate.config.enable_sqlite )
-  {
     sqlite3_exec(gamestate.sqlitedb.db, "END TRANSACTION", NULL, NULL, NULL);
-  }
+}
+
+void SQLiteDB::RollbackTransaction()
+{
+  if ( Plib::systemstate.config.enable_sqlite )
+    sqlite3_exec(gamestate.sqlitedb.db, "ROLLBACK TRANSACTION", NULL, NULL, NULL);
 }
 
 }  // namespace Core

@@ -79,6 +79,7 @@ public:
   void DeleteDataStorage();
   void BeginTransaction();
   void EndTransaction();
+  void RollbackTransaction();
 
   Items::Item* read_item( const std::string& name );
   Items::Item* create_item_ref( struct ItemInfoDB* i );
