@@ -11,6 +11,8 @@
 #include "../../bscript/berror.h"
 #include "../../bscript/impstr.h"
 #include "../../clib/clib.h"
+#include "../clib/logfacility.h"
+#include "../../plib/systemstate.h"
 #include "../globals/uvars.h"
 #include "../item/item.h"
 #include "../realms.h"
@@ -100,6 +102,15 @@ BObjectImp* StorageExecutorModule::mf_CreateRootItemInStorageArea()
   auto area = static_cast<Core::StorageArea*>( getApplicPtrParam( 0, &storage_area_type ) );
   const String* name;
   const Items::ItemDesc* descriptor;
+
+  if ( Plib::systemstate.config.enable_sqlite )
+  {
+    if ( area == nullptr )
+    {
+      ERROR_PRINT << "mf_CreateRootItemInStorageArea: inside nullptr area.\n";
+      area = Core::gamestate.storage.find_area( areaName->value() );
+    }
+  }
 
   if ( area == nullptr || !getStringParam( 1, name ) ||
        !Core::getObjtypeParam( exec, 2, descriptor ) )
