@@ -90,26 +90,6 @@ void SQLiteDB::insert_item( Items::Item* item, const std::string& areaName, cons
   }
 }
 
-// Check and create root item in SQLite database
-bool SQLiteDB::check_and_add_root_item( Items::Item* item, const std::string& areaName )
-{
-  if ( Plib::systemstate.config.enable_sqlite )
-  {
-    if ( !SQLiteDB::ExistInStorage( item->name(), table_Item ) )
-    {
-      if ( !SQLiteDB::AddItem( item, areaName ) )
-      {
-        ERROR_PRINT << "check_and_add_root_item: no added in BD.\n";
-        return false;
-      }
-      ERROR_PRINT << "check_and_add_root_item: yes added in BD.\n";
-      return true;
-    }
-    return false;
-  }
-  return true;
-}
-
 struct ItemInfoDB
 {
   int ItemId, StorageAreaId, Serial, ObjType, Graphic, Color, X, Y, Z, Facing, Revision, Amount,

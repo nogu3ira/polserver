@@ -74,7 +74,6 @@ public:
 
   void insert_root_item( Items::Item* item, const std::string& areaName );
   void insert_item( Items::Item* item, const std::string& areaName, const u32 container_serial );
-  bool check_and_add_root_item( Items::Item* item, const std::string& areaName );
 
   void UpdateDataStorage( std::map<Items::Item*, std::string> modified_storage );
   void DeleteDataStorage();
