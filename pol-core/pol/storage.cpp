@@ -18,6 +18,7 @@
 #include "../clib/cfgelem.h"
 #include "../clib/cfgfile.h"
 #include "../clib/clib.h"
+#include "../clib/fileutil.h"
 #include "../clib/logfacility.h"
 #include "../clib/rawtypes.h"
 #include "../clib/streamsaver.h"
@@ -95,15 +96,6 @@ bool StorageArea::delete_root_item( const std::string& name )
   Cont::iterator itr = _items.find( name );
   if ( itr != _items.end() )
   {
-    if ( Plib::systemstate.config.enable_sqlite )
-    {
-      if ( !gamestate.sqlitedb.RemoveItem( name ) )
-      {
-        ERROR_PRINT << "delete_root_item: no deleted in BD.\n";
-        return false;
-      }
-      ERROR_PRINT << "delete_root_item: yes deleted in BD.\n";
-    }
     Items::Item* item = ( *itr ).second;
     item->destroy();
     _items.erase( itr );
@@ -230,7 +222,7 @@ StorageArea* Storage::find_area( const std::string& name )
       else
       {
         ERROR_PRINT << "find_area: yes found in BD.\n";
-        return Storage::create_areaCache( name );
+        return Storage::create_area( name );
       }
     }
     else
@@ -247,53 +239,15 @@ StorageArea* Storage::find_area( const std::string& name )
 
 void StorageArea::create_ItemCache( const std::string& name )
 {
-  ERROR_PRINT << "create_ItemCache: tentando criar o item.\n";
-  // Get item from SQLite DB
-  // and transform to Item ref
-  Items::Item* temp_item = gamestate.sqlitedb.read_item( name );
-
-  ERROR_PRINT << "create_ItemCache: item temporario criado.\n";
+  ERROR_PRINT << "create_ItemCache: trying to create the item " << name << "\n";
+  // Get item from SQLite DB and transform to Item ref
+  Items::Item* item = gamestate.sqlitedb.read_item( name );
   // Add item in memory
-  insert_root_item( temp_item );
-  ERROR_PRINT << "create_ItemCache: inserido no root item.\n";
+  insert_root_item( item );
+  // ERROR_PRINT << "create_ItemCache: root item ref created and inserted.\n";
 }
 
 StorageArea* Storage::create_area( const std::string& name )
-{
-  AreaCont::iterator itr = areas.find( name );
-  if ( itr == areas.end() )
-  {
-    ERROR_PRINT << "create_area: no found in areas.\n";
-
-    if ( Plib::systemstate.config.enable_sqlite )
-    {
-      if ( !gamestate.sqlitedb.ExistInStorage( name, gamestate.sqlitedb.table_StorageArea ) )
-      {
-        ERROR_PRINT << "create_area: no found in BD. Creating into DB.\n";
-        // Create into DB
-        gamestate.sqlitedb.AddStorageArea( name );
-        // Add into AreaCont
-        return Storage::create_areaCache( name );
-      }
-      else
-      {
-        ERROR_PRINT << "create_area: yes found in BD.\n";
-        // Add into AreaCont
-        return Storage::create_areaCache( name );
-      }
-    }
-
-    StorageArea* area = new StorageArea( name );
-    areas[name] = area;
-    return area;
-  }
-  else
-  {
-    return ( *itr ).second;
-  }
-}
-
-StorageArea* Storage::create_areaCache( const std::string& name )
 {
   AreaCont::iterator itr = areas.find( name );
   if ( itr == areas.end() )
@@ -322,20 +276,38 @@ StorageArea* Storage::create_area( Clib::ConfigElem& elem )
   }
 }
 
+// Add StorageArea in SQLite database and in memory
 StorageArea* Storage::create_area( Clib::ConfigElem& elem, std::string& areaName )
 {
   const char* rest = elem.rest();
   if ( rest != nullptr && rest[0] )
   {
     areaName = rest;
-    return create_area( rest );
   }
   else
   {
     std::string name = elem.remove_string( "NAME" );
     areaName = name;
-    return create_area( name );
   }
+
+  if ( Plib::systemstate.config.enable_sqlite )
+  {
+    if ( !gamestate.sqlitedb.ExistInStorage( areaName, gamestate.sqlitedb.table_StorageArea ) )
+    {
+      ERROR_PRINT << "create_area: no found in BD. Creating into DB.\n";
+      // Create into DB
+      gamestate.sqlitedb.AddStorageArea( areaName );
+      return create_area( areaName );
+    }
+    else
+    {
+      ERROR_PRINT << "Duplicate StorageArea read from datafiles. Name: " << areaName << "\n";
+      throw std::runtime_error( "Data integrity error" );
+      return nullptr;
+    }
+  }
+
+  return create_area( areaName );
 }
 
 void StorageArea::print( Clib::StreamWriter& sw ) const
@@ -382,15 +354,10 @@ void Storage::read( Clib::ConfigFile& cf )
   Clib::ConfigElem elem;
   std::string areaName = "";
 
-  bool existDB = gamestate.sqlitedb.ExistDB();
-
-  if ( gamestate.sqlitedb.db == NULL )
-    gamestate.sqlitedb.Connect();
-
   clock_t start = clock();
 
-  if ( !existDB )
-    gamestate.sqlitedb.BeginTransaction();
+  gamestate.sqlitedb.Connect();
+  gamestate.sqlitedb.BeginTransaction();
 
   while ( cf.read( elem ) )
   {
@@ -431,8 +398,7 @@ void Storage::read( Clib::ConfigFile& cf )
     ++nobjects;
   }
 
-  if ( !existDB )
-    gamestate.sqlitedb.EndTransaction();
+  gamestate.sqlitedb.EndTransaction();
 
   clock_t end = clock();
   int ms = static_cast<int>( ( end - start ) * 1000.0 / CLOCKS_PER_SEC );
@@ -461,10 +427,30 @@ void Storage::clear()
     delete ( ( *areas.begin() ).second );
     areas.erase( areas.begin() );
   }
+  gamestate.sqlitedb.Close();
+  gamestate.sqlitedb.Connect();
+}
+
+// After import all data to SQLite database, remove txt file
+void Storage::RemoveStorageFile( std::string storagefile )
+{
   if ( Plib::systemstate.config.enable_sqlite )
   {
-    gamestate.sqlitedb.Close();
-    gamestate.sqlitedb.Connect();
+    // if ( unlink( storagefile.c_str() ) )
+    // {
+    //   int err = errno;
+    //   POLLOG_ERROR.Format( "Unable to delete {}: {} ({})\n" ) << storagefile << strerror( err ) << err;
+    //   throw std::runtime_error( "Data file integrity error" );
+    // }
+
+    // Testing rename instead remove file.
+    std::string oldfile = storagefile + "_oldtxt";
+    if ( rename( storagefile.c_str(), oldfile.c_str() ) )
+    {
+      int err = errno;
+      POLLOG_ERROR.Format( "Unable to rename {} to {}: {} ({})\n" )
+          << storagefile << oldfile << strerror( err ) << err;
+    }
   }
 }
 

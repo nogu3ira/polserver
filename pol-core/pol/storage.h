@@ -73,7 +73,7 @@ public:
   void clear();
   size_t estimateSize() const;
 
-  StorageArea* create_areaCache( const std::string& name );
+  void RemoveStorageFile( std::string storagefile );
 
 private:
   // TODO: investigate if this could store objects. Does find()

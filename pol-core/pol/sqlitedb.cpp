@@ -62,7 +62,7 @@ SQLiteDB::~SQLiteDB()
   }
 }
 
-// Insert item only in SQLite Database.
+// Insert root item only in SQLite Database. Don't load item in memory.
 void SQLiteDB::insert_root_item( Items::Item* item, const std::string& areaName )
 {
   if ( Plib::systemstate.config.enable_sqlite )
@@ -402,20 +402,23 @@ bool SQLiteDB::ExistDB()
 
 void SQLiteDB::Connect()
 {
-  if ( !SQLiteDB::ExistDB() )
+  if ( Plib::systemstate.config.enable_sqlite )
   {
-    if ( !SQLiteDB::CreateDatabase() )
-      throw std::runtime_error( "Storage: Can't create database " + gamestate.sqlitedb.dbpath );
-  }
+    if ( !SQLiteDB::ExistDB() )
+    {
+      if ( !SQLiteDB::CreateDatabase() )
+        throw std::runtime_error( "Storage: Can't create database " + gamestate.sqlitedb.dbpath );
+    }
 
-  int rc = sqlite3_open( gamestate.sqlitedb.dbpath.c_str(), &gamestate.sqlitedb.db );
-  if ( rc )
-  {
-    ERROR_PRINT << "Storage: Can't open database: " << sqlite3_errmsg( gamestate.sqlitedb.db ) << ".\n";
-    throw std::runtime_error( "Storage: Can't open database " + gamestate.sqlitedb.dbpath );
-  }
+    int rc = sqlite3_open( gamestate.sqlitedb.dbpath.c_str(), &gamestate.sqlitedb.db );
+    if ( rc )
+    {
+      ERROR_PRINT << "Storage: Can't open database: " << sqlite3_errmsg( gamestate.sqlitedb.db ) << ".\n";
+      throw std::runtime_error( "Storage: Can't open database " + gamestate.sqlitedb.dbpath );
+    }
 
-  INFO_PRINT << "SQLite database connected!\n";
+    INFO_PRINT << " SQLite database connected!\n";
+  }
 }
 
 void SQLiteDB::Finish( sqlite3_stmt*& stmt, int x )
@@ -429,7 +432,8 @@ void SQLiteDB::Finish( sqlite3_stmt*& stmt, int x )
 
 void SQLiteDB::Close()
 {
-  sqlite3_close( gamestate.sqlitedb.db );
+  if ( Plib::systemstate.config.enable_sqlite )
+    sqlite3_close( gamestate.sqlitedb.db );
 }
 
 bool SQLiteDB::ExistInStorage( const std::string& name, const std::string& table_name )
@@ -511,7 +515,7 @@ void SQLiteDB::ListStorageAreas()
   {
     std::string Name =
         std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 0 ) ) );
-    gamestate.storage.create_areaCache( Name );
+    gamestate.storage.create_area( Name );
   }
   if ( rc != SQLITE_DONE )
   {
@@ -1060,18 +1064,18 @@ bool SQLiteDB::UpdateItem( Items::Item* item, const std::string& areaName )
 
   if ( !ItemId )
   {
-    ERROR_PRINT << "Storage: No ItemId found.\n";
+    ERROR_PRINT << "Storage: No ItemId found. Serial: " << Serial << "\n";
     Finish( stmt );
-    throw std::runtime_error( "Data file integrity error (ItemId)" );
+    return false;
   }
 
   RemoveCProp( ItemId );
 
   if ( !AddCProp( item, ItemId ) )
   {
-    ERROR_PRINT << "Storage: No CProp inserted.\n";
+    ERROR_PRINT << "Storage: No CProp inserted. ItemId: " << ItemId << "\n";
     Finish( stmt );
-    throw std::runtime_error( "Data file integrity error" );
+    return false;
   }
 
   return true;

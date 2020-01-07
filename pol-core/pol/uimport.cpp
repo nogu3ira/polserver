@@ -397,13 +397,12 @@ void slurp( const char* filename, const char* tags, int sysfind_flags )
           read_multi( elem );
         else if ( elem.type_is( "STORAGEAREA" ) )
         {
-          std::string areaName = "";
-          StorageArea* storage_area = gamestate.storage.create_area( elem, areaName );
+          StorageArea* storage_area = gamestate.storage.create_area( elem );
           // this will be followed by an item
           if ( !cf.read( elem ) )
             throw std::runtime_error( "Expected an item to exist after the storagearea." );
 
-          storage_area->load_item( elem, areaName );
+          storage_area->load_item( elem, "" );
         }
         else if ( elem.type_is( "REALM" ) )
           read_shadow_realms( elem );
@@ -505,6 +504,11 @@ void read_storage_dat()
     INFO_PRINT << "  " << storagefile << ":";
     Clib::ConfigFile cf2( storagefile );
     gamestate.storage.read( cf2 );
+    gamestate.storage.RemoveStorageFile( storagefile );
+  }
+  else
+  {
+    gamestate.sqlitedb.Connect();
   }
 }
 
