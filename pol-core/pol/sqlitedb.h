@@ -9,6 +9,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 #include "../clib/maputil.h"
 #include <sqlite/sqlite3.h>
@@ -46,6 +47,9 @@ public:
   std::string table_CProp = "CProp";
   std::string table_StorageArea = "StorageArea";
   std::string dbpath = "data/database.db";
+  std::map<Items::Item*, std::string> modified_storage;
+  std::vector<u32> deleted_storage;
+  std::vector<u32> all_storage_serials;
 
   bool ExistInStorage( const std::string& name, const std::string& table_name );
   bool ExistInStorage( const u32 serial, const std::string& table_name );
@@ -75,7 +79,7 @@ public:
   void insert_root_item( Items::Item* item, const std::string& areaName );
   void insert_item( Items::Item* item, const std::string& areaName, const u32 container_serial );
 
-  void UpdateDataStorage( std::map<Items::Item*, std::string> modified_storage );
+  void UpdateDataStorage();
   void DeleteDataStorage();
   void BeginTransaction();
   void EndTransaction();

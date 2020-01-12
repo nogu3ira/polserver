@@ -1506,7 +1506,7 @@ bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName, const u3
   return true;
 }
 
-void SQLiteDB::UpdateDataStorage( std::map<Items::Item*, std::string> modified_storage )
+void SQLiteDB::UpdateDataStorage()
 {
   if ( Plib::systemstate.config.enable_sqlite )
   {

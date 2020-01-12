@@ -73,7 +73,7 @@ public:
   void clear();
   size_t estimateSize() const;
 
-  void RemoveStorageFile( std::string storagefile );
+  void commit_sqlitedb();
 
 private:
   // TODO: investigate if this could store objects. Does find()

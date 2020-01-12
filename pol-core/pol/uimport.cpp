@@ -1216,7 +1216,14 @@ int write_data( unsigned int& dirty_writes, unsigned int& clean_writes, long lon
       commit( "npcequip" );
       commit( "items" );
       commit( "multis" );
-      commit( "storage" );
+      if ( Plib::systemstate.config.enable_sqlite )
+      {
+        gamestate.storage.commit_sqlitedb();
+      }
+      else
+      {
+        commit( "storage" );
+      }
       commit( "resource" );
       commit( "guilds" );
       commit( "datastore" );

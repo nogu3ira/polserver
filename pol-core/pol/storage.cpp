@@ -466,6 +466,15 @@ size_t Storage::estimateSize() const
   return size;
 }
 
+void Storage::commit_sqlitedb()
+{
+  gamestate.sqlitedb.UpdateDataStorage();
+  gamestate.sqlitedb.DeleteDataStorage();
+  gamestate.sqlitedb.modified_storage.clear();
+  gamestate.sqlitedb.deleted_storage.clear();
+  gamestate.sqlitedb.all_storage_serials.clear();
+}
+
 class StorageAreaIterator final : public ContIterator
 {
 public:
