@@ -98,7 +98,11 @@ bool StorageArea::delete_root_item( const std::string& name )
   {
     Items::Item* item = ( *itr ).second;
     item->destroy();
-    _items.erase( itr );
+    if ( !Plib::systemstate.config.enable_sqlite )
+    {
+      // When sqlite on, ensures the root_item is orphan.
+      _items.erase( itr );
+    }
     return true;
   }
   return false;
