@@ -504,7 +504,7 @@ void read_storage_dat()
     INFO_PRINT << "  " << storagefile << ":";
     Clib::ConfigFile cf2( storagefile );
     gamestate.storage.read( cf2 );
-    gamestate.storage.RemoveStorageFile( storagefile );
+    rename_txt_file( "storage" );
   }
   else
   {
@@ -593,6 +593,36 @@ void rndat( const std::string& basename )
   if ( Clib::FileExists( datname.c_str() ) )
   {
     rename( datname.c_str(), txtname.c_str() );
+  }
+}
+
+// After import all data to SQLite database, rename txt file
+void rename_txt_file( const std::string& basename )
+{
+  if ( Plib::systemstate.config.enable_sqlite )
+  {
+    // if ( unlink( file.c_str() ) )
+    // {
+    //   int err = errno;
+    //   POLLOG_ERROR.Format( "Unable to delete {}: {} ({})\n" ) << file << strerror( err ) << err;
+    //   throw std::runtime_error( "Data file integrity error" );
+    // }
+
+    // Testing rename instead remove file.
+    std::string currentname = Plib::systemstate.config.world_data_path + basename + ".txt";
+    std::string newname     = Plib::systemstate.config.world_data_path + basename + "-old" + ".txt";
+    int numfile = 0;
+    while ( Clib::FileExists( newname.c_str() ) )
+    {
+      newname = Plib::systemstate.config.world_data_path + basename + "-old" + std::to_string( numfile ) + ".txt";
+      ++numfile;
+    }
+    if ( rename( currentname.c_str(), newname.c_str() ) )
+    {
+      int err = errno;
+      POLLOG_ERROR.Format( "Unable to rename {} to {}: {} ({})\n" )
+          << currentname << newname << strerror( err ) << err;
+    }
   }
 }
 
