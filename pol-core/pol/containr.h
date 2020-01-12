@@ -207,6 +207,7 @@ public:
   void get_random_location( u16* px, u16* py ) const;
   bool is_legal_posn( const Items::Item* item, u16 x, u16 y ) const;
   void enumerate_contents( Bscript::ObjArray* arr, int flags );
+  void enumerate_contents( std::vector<Items::Item*>& sub_cont_items, int flags );
   void extract( Contents& cnt );
 
   bool can_swap( const UContainer& cont ) const;

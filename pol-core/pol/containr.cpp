@@ -326,6 +326,25 @@ void UContainer::enumerate_contents( Bscript::ObjArray* arr, int flags )
   }
 }
 
+void UContainer::enumerate_contents( std::vector<Items::Item*>& sub_cont_items, int flags )
+{
+  for ( auto& item : contents_ )
+  {
+    if ( item )  // dave 1/1/03, wornitemscontainer can have null items!
+    {
+      sub_cont_items.push_back( item );
+      // Austin 9-15-2006, added flag to not enumerate sub-containers.
+      if ( !( flags & ENUMERATE_ROOT_ONLY ) &&
+           ( item->isa( UOBJ_CLASS::CLASS_CONTAINER ) ) )  // FIXME check locks
+      {
+        UContainer* cont = static_cast<UContainer*>( item );
+        if ( !cont->locked() || ( flags & ENUMERATE_IGNORE_LOCKED ) )
+          cont->enumerate_contents( sub_cont_items, flags );
+      }
+    }
+  }
+}
+
 void UContainer::extract( Contents& cnt )
 {
   if ( orphan() )
