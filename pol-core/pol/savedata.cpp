@@ -63,8 +63,6 @@ void write_dirty_storage( Clib::StreamWriter& sw_data )
   // these will all be processed again in write_dirty_data - but
   // they'll be clean then.  So we'll have to fudge the counters a little.
 
-  std::map<Items::Item*, std::string> modified_storage;
-
   for ( Storage::AreaCont::const_iterator area_itr = gamestate.storage.areas.begin();
         area_itr != gamestate.storage.areas.end(); ++area_itr )
   {
@@ -90,7 +88,6 @@ void write_dirty_storage( Clib::StreamWriter& sw_data )
 
         item->printSelfOn( sw_data );
         objStorageManager.modified_serials.push_back( item->serial );
-        modified_storage.insert( make_pair( item, area->_name ));
       }
       else
       {
@@ -99,8 +96,6 @@ void write_dirty_storage( Clib::StreamWriter& sw_data )
       item->clear_dirty();
     }
   }
-  gamestate.sqlitedb.UpdateDataStorage( modified_storage );
-  gamestate.sqlitedb.DeleteDataStorage();
 }
 
 
