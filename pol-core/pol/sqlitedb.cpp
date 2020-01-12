@@ -47,7 +47,7 @@ using namespace Bscript;
 
 SQLiteDB::SQLiteDB()
 {
-  ERROR_PRINT << "dentro do construtor sqlitedb.\n";
+  INFO_PRINT_TRACE( 1 ) << "INSIDE CONSTRUCTOR SQLITEDB.\n";
   if ( Plib::systemstate.config.enable_sqlite )
   {
     SQLiteDB::Connect();
@@ -69,10 +69,10 @@ void SQLiteDB::insert_root_item( Items::Item* item, const std::string& areaName 
   {
     if ( !SQLiteDB::AddItem( item, areaName ) )
     {
-      ERROR_PRINT << "insert_root_item: no added in BD.\n";
+      INFO_PRINT_TRACE( 1 ) << "insert_root_item: no added in BD.\n";
       return;
     }
-    ERROR_PRINT << "insert_root_item: yes added in BD.\n";
+    INFO_PRINT_TRACE( 1 ) << "insert_root_item: yes added in BD.\n";
   }
 }
 
@@ -83,10 +83,10 @@ void SQLiteDB::insert_item( Items::Item* item, const std::string& areaName, cons
   {
     if ( !SQLiteDB::AddItem( item, areaName, container_serial ) )
     {
-      ERROR_PRINT << "insert_item: no added in BD.\n";
+      INFO_PRINT_TRACE( 1 ) << "insert_item: no added in BD.\n";
       return;
     }
-    ERROR_PRINT << "insert_item: yes added in BD.\n";
+    INFO_PRINT_TRACE( 1 ) << "insert_item: yes added in BD.\n";
   }
 }
 
@@ -619,7 +619,8 @@ int SQLiteDB::GetItemId( const std::string& name )
 
 void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
 {
-  ERROR_PRINT << "GetItem: inicio do metodo.\n";
+  INFO_PRINT_TRACE( 1 ) << "GetItem: start method.\n";
+
   std::string sqlquery = "SELECT * FROM ";
   sqlquery += prefix_table;
   sqlquery += table_Item;
@@ -631,13 +632,13 @@ void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
   int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
-    ERROR_PRINT << "GetItem: algum problema no prepare_query.\n";
+    ERROR_PRINT << "GetItem: some problem with prepare query.\n";
     Finish( stmt );
     return;
   }
   while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
   {
-    ERROR_PRINT << "GetItem: dentro do while.\n";
+    // INFO_PRINT_TRACE( 1 ) << "GetItem: inside while.\n";
     i->ItemId = sqlite3_column_int( stmt, 0 );
     i->StorageAreaId = sqlite3_column_int( stmt, 1 );
 
