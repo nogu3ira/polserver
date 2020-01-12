@@ -45,7 +45,7 @@ public:
   void load_item( Clib::ConfigElem& elem, const std::string& areaName );
   size_t estimateSize() const;
 
-  void create_ItemCache( const std::string& name );
+  Items::Item* create_root_item( const std::string& name );
 
 private:
   std::string _name;

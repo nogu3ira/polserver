@@ -76,8 +76,8 @@ Items::Item* StorageArea::find_root_item( const std::string& name )
   {
     if ( gamestate.sqlitedb.ExistInStorage( name, gamestate.sqlitedb.table_Item ) )
     {
-      StorageArea::create_ItemCache( name );
       INFO_PRINT_TRACE( 1 ) << "find_root_item: yes found in BD. Name: " << name << "\n";
+      Items::Item* root_item = StorageArea::create_root_item( name );
 
       itr = _items.find( name );
       if ( itr != _items.end() )
@@ -241,7 +241,7 @@ StorageArea* Storage::find_area( const std::string& name )
   }
 }
 
-void StorageArea::create_ItemCache( const std::string& name )
+Items::Item* StorageArea::create_root_item( const std::string& name )
 {
   INFO_PRINT_TRACE( 1 ) << "create_root_item: trying to create the item " << name << "\n";
   // Get item from SQLite DB and transform to Item ref
@@ -249,6 +249,7 @@ void StorageArea::create_ItemCache( const std::string& name )
   // Add item in memory
   insert_root_item( item );
   // INFO_PRINT_TRACE( 1 ) << "create_root_item: root item ref created and inserted.\n";
+  return item;
 }
 
 StorageArea* Storage::create_area( const std::string& name )
