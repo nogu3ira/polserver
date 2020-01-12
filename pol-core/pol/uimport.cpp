@@ -766,12 +766,15 @@ SaveContext::SaveContext()
            << "#  because doors, planks, and tillermen will be left in the world." << pf_endl << "#"
            << pf_endl << pf_endl;
 
-  storage() << "#" << pf_endl
-            << "#  STORAGE.TXT: Contains bank boxes, vendor inventories, and other data." << pf_endl
-            << "#" << pf_endl
-            << "#  This file can safely be deleted to wipe bank boxes and vendor inventories."
-            << pf_endl << "#  Note that scripts may use this for other types of storage as well"
-            << pf_endl << "#" << pf_endl << pf_endl;
+  if ( !Plib::systemstate.config.enable_sqlite )
+  {
+    storage() << "#" << pf_endl
+              << "#  STORAGE.TXT: Contains bank boxes, vendor inventories, and other data." << pf_endl
+              << "#" << pf_endl
+              << "#  This file can safely be deleted to wipe bank boxes and vendor inventories."
+              << pf_endl << "#  Note that scripts may use this for other types of storage as well"
+              << pf_endl << "#" << pf_endl << pf_endl;
+  }
 
   resource() << "#" << pf_endl << "#  RESOURCE.TXT: Resource System Data" << pf_endl << "#"
              << pf_endl << pf_endl;
