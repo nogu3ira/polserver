@@ -13,6 +13,8 @@
 #include <exception>
 #include <string>
 #include <time.h>
+#include <utility>
+#include <algorithm>
 
 #include "../bscript/berror.h"
 #include "../bscript/bobject.h"
@@ -38,6 +40,8 @@
 #include "polcfg.h"
 #include "ufunc.h"
 #include <sqlite/sqlite3.h>
+// #include <boost/bind.hpp>
+#include <boost/algorithm/string/replace.hpp>
 
 namespace Pol
 {
@@ -115,6 +119,37 @@ Items::Item* SQLiteDB::read_item( const std::string& name )
   SQLiteDB::GetItem( name, &iteminfo );
   SQLiteDB::GetCProp( iteminfo.ItemId, CProps );
   return SQLiteDB::create_item_ref( &iteminfo, CProps );
+}
+
+// Read items in container from SQLite Database
+std::map<Items::Item*, u32> SQLiteDB::read_items_in_container( const u32 container_serial )
+{
+  std::vector<ItemInfoDB> ItemsInfo;
+  std::map<Items::Item*, u32> ItemsRef;
+
+  SQLiteDB::BeginTransaction();
+  // list contents of root containers
+  int found_item = SQLiteDB::GetItems( container_serial, ItemsInfo );
+
+  // list contents of sub-containers
+  while( found_item > 0 )
+  {
+    found_item = 0;
+    for (auto iteminfo : ItemsInfo)
+    {
+      found_item += SQLiteDB::GetItems( iteminfo.Serial, ItemsInfo );
+    }
+  }
+
+  for (auto iteminfo : ItemsInfo)
+  {
+    std::map<std::string, std::string> CProps;
+    SQLiteDB::GetCProp( iteminfo.ItemId, CProps );
+    Items::Item* item = SQLiteDB::create_item_ref( &iteminfo, CProps );
+    ItemsRef.insert( { item, iteminfo.Container } );
+  }
+  SQLiteDB::EndTransaction();
+  return ItemsRef;
 }
 
 // Create item reference found in SQLite Database
@@ -647,6 +682,102 @@ void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
   while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
   {
     // INFO_PRINT_TRACE( 1 ) << "GetItem: inside while.\n";
+    SQLiteDB::PrepareItemInfo( stmt, i );
+  }
+  if ( rc != SQLITE_DONE )
+  {
+    ERROR_PRINT << "GetItem: some problem in query.\n";
+    Finish( stmt );
+    return;
+  }
+  Finish( stmt, 0 );
+  INFO_PRINT_TRACE( 1 ) << "GetItem: OK.\n";
+}
+
+int SQLiteDB::GetItems( const u32 container_serial, std::vector<ItemInfoDB>& ItemsInContainer )
+{
+  INFO_PRINT_TRACE( 1 ) << "GetItems: start method.\n";
+
+  std::string sqlquery = "SELECT * FROM ";
+  sqlquery += prefix_table;
+  sqlquery += table_Item;
+  sqlquery += " WHERE Container = '";
+  sqlquery += std::to_string(container_serial);
+  sqlquery += "'";
+
+  int count = 0;
+  sqlite3_stmt* stmt;
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
+  if ( rc != SQLITE_OK )
+  {
+    ERROR_PRINT << "GetItems: some problem with prepare query.\n";
+    Finish( stmt );
+    return count;
+  }
+  while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
+  {
+    INFO_PRINT_TRACE( 1 ) << "GetItems: insde while.\n";
+    ItemInfoDB i;
+    SQLiteDB::PrepareItemInfo( stmt, &i );
+
+    // if no duplicate, go ahead.
+    if ( CanAddItemInfo( i.Serial, ItemsInContainer ) )
+    {
+      ItemsInContainer.push_back(i);
+      ++count;
+    }
+  }
+  if ( rc != SQLITE_DONE )
+  {
+    ERROR_PRINT << "GetItems: some problem in query.\n";
+    Finish( stmt );
+    return count;
+  }
+  Finish( stmt, 0 );
+  INFO_PRINT_TRACE( 1 ) << "GetItems: OK.\n";
+  return count;
+}
+
+bool SQLiteDB::CanAddItemInfo( const u32 serial, std::vector<ItemInfoDB> ItemsInContainer )
+{
+  for (auto iteminfo : ItemsInContainer)
+  {
+    if ( serial == static_cast<u32>(iteminfo.Serial) )
+    {
+      INFO_PRINT_TRACE( 1 ) << "CanAddItemInfo: item is already added into vector. SERIAL: " << std::to_string(serial) << "\n";
+      return false;
+    }
+  }
+  return true;
+
+
+  // struct find_serial
+  // {
+  //     int Serial;
+  //     find_serial(int Serial) : Serial(Serial) {}
+  //     bool operator () ( const ItemInfoDB& m ) const
+  //     {
+  //         return m.Serial == Serial;
+  //     }
+  // };
+
+  // std::vector<ItemInfoDB>::iterator it = std::find_if( ItemsInContainer.begin(), 
+  //                                                       ItemsInContainer.end(), 
+  //                                                       find_serial(serial));
+
+  // std::vector<ItemInfoDB>::iterator it = std::find_if( ItemsInContainer.begin(), ItemsInContainer.end(), 
+  //                                                   boost::bind( &ItemInfoDB::Serial, _1 ) == serial );
+  // INFO_PRINT_TRACE( 1 ) << "iterator: " << std::to_string(it->Serial) << "\n";
+
+  // // if no duplicate, go ahead.
+  // if ( it->Serial != serial )
+  //   return true;
+  // else
+  //   return false;
+}
+
+void SQLiteDB::PrepareItemInfo( sqlite3_stmt* stmt, struct ItemInfoDB* i )
+{
     i->ItemId = sqlite3_column_int( stmt, 0 );
     i->StorageAreaId = sqlite3_column_int( stmt, 1 );
 
@@ -745,15 +876,6 @@ void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
     i->FasterCastingMod = sqlite3_column_int( stmt, 76 );
     i->FasterCastRecoveryMod = sqlite3_column_int( stmt, 77 );
     i->LuckMod = sqlite3_column_int( stmt, 78 );
-  }
-  if ( rc != SQLITE_DONE )
-  {
-    ERROR_PRINT << "GetItem: algum problema no select.\n";
-    Finish( stmt );
-    return;
-  }
-  Finish( stmt, 0 );
-  ERROR_PRINT << "GetItem: OK.\n";
 }
 
 bool SQLiteDB::RemoveItem( const std::string& name )

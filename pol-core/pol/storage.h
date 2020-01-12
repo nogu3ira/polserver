@@ -68,6 +68,8 @@ public:
   StorageArea* create_area( Clib::ConfigElem& elem, std::string& areaName );
   void on_delete_realm( Realms::Realm* realm );
 
+  void load_items( const u32 container_serial );
+
   void print( Clib::StreamWriter& sw ) const;
   void read( Clib::ConfigFile& cf );
   void clear();

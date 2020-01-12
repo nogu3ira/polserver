@@ -73,9 +73,12 @@ public:
   void AddStorageArea( const std::string& name );
   void GetCProp( const int ItemId, std::map<std::string, std::string>& CProps );
   void PrepareCProp( Items::Item* item, std::map<std::string, std::string>& allproperties );
+  void PrepareItemInfo( sqlite3_stmt* stmt, struct ItemInfoDB* i );
+  bool CanAddItemInfo( const u32 serial, std::vector<ItemInfoDB> ItemsInContainer );
   void query_value( std::string& q, const std::string& v, bool last = false );
   void query_value2( std::string& query, const std::string& column_name, const std::string& new_value, bool last = false );
   void GetItem( const std::string& name, struct ItemInfoDB* i );
+  int GetItems( const u32 container_serial, std::vector<ItemInfoDB>& ItemsInContainer );
 
   void insert_root_item( Items::Item* item, const std::string& areaName );
   void insert_item( Items::Item* item, const std::string& areaName, const u32 container_serial );
@@ -89,6 +92,7 @@ public:
 
   Items::Item* read_item( const std::string& name );
   Items::Item* create_item_ref( struct ItemInfoDB* i, std::map<std::string, std::string>& CProps );
+  std::map<Items::Item*, u32> read_items_in_container( const u32 container_serial );
 
 private:
 };

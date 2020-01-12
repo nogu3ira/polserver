@@ -78,6 +78,7 @@ Items::Item* StorageArea::find_root_item( const std::string& name )
     {
       INFO_PRINT_TRACE( 1 ) << "find_root_item: yes found in BD. Name: " << name << "\n";
       Items::Item* root_item = StorageArea::create_root_item( name );
+      gamestate.storage.load_items( root_item->serial );
 
       itr = _items.find( name );
       if ( itr != _items.end() )
@@ -411,17 +412,26 @@ void Storage::read( Clib::ConfigFile& cf )
   INFO_PRINT << " " << nobjects << " elements in " << ms << " ms.\n";
 }
 
-void Storage::print( Clib::StreamWriter& sw ) const
+// Load the contents of a container from SQLite database
+void Storage::load_items( const u32 container_serial )
 {
-  for ( const auto& area : areas )
+  if ( gamestate.sqlitedb.ExistInStorage( container_serial, gamestate.sqlitedb.table_Item ) )
   {
-    sw() << "StorageArea" << '\n'
-         << "{" << '\n'
-         << "\tName\t" << area.first << '\n'
-         << "}" << '\n'
-         << '\n';
-    area.second->print( sw );
-    sw() << '\n';
+    std::map<Items::Item*, u32> ItemsRef = gamestate.sqlitedb.read_items_in_container( container_serial );
+    for (auto itr = ItemsRef.begin(); itr != ItemsRef.end(); ++itr)
+    {
+      Items::Item* cont_item = Core::system_find_item( itr->second );
+
+      if ( cont_item )
+      {
+        INFO_PRINT_TRACE( 1 ) << "load_items: added Item " << itr->first->serial << " in Container: " << itr->second << "\n";
+        add_loaded_item( cont_item, itr->first );
+      }
+      else
+      {
+        defer_item_insertion( itr->first, itr->second );
+      }
+    }
   }
 }
 
