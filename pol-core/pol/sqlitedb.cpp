@@ -826,7 +826,20 @@ bool SQLiteDB::UpdateItem( Items::Item* item, const std::string& areaName )
 {
   //auto ItemId = "NULL";
   auto StorageAreaId = std::to_string( GetIdArea( areaName ) );
-  auto Name = !item->name_.get().empty() ? item->name_.get() : "NULL";
+
+  std::string Name;
+  if ( !item->name_.get().empty() )
+  {
+    Name = item->name_.get();
+    EscapeSequence( Name );
+  }
+  else
+  {
+    Name = "NULL";
+
+  }
+
+
   auto Serial = std::to_string( item->serial );
   auto ObjType = std::to_string( item->objtype_ );
   auto Graphic = std::to_string( item->graphic );
@@ -1240,6 +1253,12 @@ void SQLiteDB::PrepareCProp( Items::Item* item, std::map<std::string, std::strin
   }
 }
 
+void SQLiteDB::EscapeSequence( std::string& value )
+{
+  boost::replace_all(value, "\"", "\"\"");
+  boost::replace_all(value, "\'", "\'\'");
+}
+
 bool SQLiteDB::AddCProp( Items::Item* item, const int last_rowid )
 {
   std::map<std::string, std::string> allproperties;
@@ -1250,13 +1269,19 @@ bool SQLiteDB::AddCProp( Items::Item* item, const int last_rowid )
 
   for ( const auto& kv : allproperties )
   {
+    std::string propname = kv.first;
+    EscapeSequence( propname );
+
+    std::string propvalue = kv.second;
+    EscapeSequence( propvalue );
+
     std::string s = "INSERT INTO ";
     s += prefix_table;
     s += table_CProp;
     s += " VALUES(";
     query_value( s, CPropId );
-    query_value( s, kv.first );
-    query_value( s, kv.second );
+    query_value( s, propname );
+    query_value( s, propvalue );
     query_value( s, ItemId, true );
     s += ")";
 
@@ -1289,7 +1314,19 @@ bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName, const u3
 {
   auto ItemId = "NULL";
   auto StorageAreaId = std::to_string( GetIdArea( areaName ) );
-  auto Name = !item->name_.get().empty() ? item->name_.get() : "NULL";
+
+  std::string Name;
+  if ( !item->name_.get().empty() )
+  {
+    Name = item->name_.get();
+    EscapeSequence( Name );
+  }
+  else
+  {
+    Name = "NULL";
+
+  }
+
   auto Serial = std::to_string( item->serial );
   auto ObjType = std::to_string( item->objtype_ );
   auto Graphic = std::to_string( item->graphic );
