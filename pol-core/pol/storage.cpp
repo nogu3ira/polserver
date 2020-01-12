@@ -316,13 +316,139 @@ StorageArea* Storage::create_area( Clib::ConfigElem& elem, std::string& areaName
   return create_area( areaName );
 }
 
-void StorageArea::print( Clib::StreamWriter& sw ) const
+void StorageArea::print( Clib::StreamWriter& sw, std::string areaName ) const
 {
+
+// checagem no storage db se o item foi movido/deletado de lá.
+
+// Passo 1:
+// Crio lista all_storage_serials com todos os itens (seriais) no db (array de seriais);
+
+// Passo 2:
+// Todos os itens encontrados no storage (root item e container) vou retirando da lista all_storage_serials;
+
+// Sobrarão os itens que: 
+// 	-> foram movidos para outros .txt ou
+// 	-> foram deletados ou
+// 	-> apenas não foram carreagados na memória.
+
+// Passo 3:
+// Usar system_find_item( serial ). Se encontrar, é porque foi para outro txt.
+// Remover item do DB.
+
+// Passo 4:
+// Se encontrar e for órfão. Item vai ser destruído.
+// Remover item do DB.
+
+// Items::Item* system_find_item2( u32 serial /*, int sysfind_flags */ )
+// {
+//   UObject* obj = objStorageManager.objecthash.Find( serial );
+//   if ( obj != nullptr && obj->isitem() && obj->orphan() )
+//     return static_cast<Items::Item*>( obj );
+//   else
+//     return nullptr;
+// }
+
+// Passo 5:
+// Os demais significa que não foram carregados na memória. Não fazer nada.
+
+// Passo 6:
+// Checagem completa.
+
   for ( const auto& cont_item : _items )
   {
-    const Items::Item* item = cont_item.second;
+    Items::Item* item = cont_item.second;
     if ( item->saveonexit() )
-      sw << *item;
+    {
+      gamestate.sqlitedb.remove_from_list(gamestate.sqlitedb.all_storage_serials, item->serial);
+      // if ( Plib::systemstate.config.enable_sqlite )
+      // {
+        // if ( !item->dirty() )
+        // {
+          // INFO_PRINT_TRACE( 1 ) << "no_dirty_storage: " << std::to_string(item->serial) << 
+          //             " areaName: " << areaName << ".\n";
+          // continue;
+        // }
+
+        if ( !item->orphan() && item->dirty() )
+        {
+          gamestate.sqlitedb.modified_storage.insert( make_pair( item, areaName ) );
+          item->clear_dirty();
+          INFO_PRINT_TRACE( 1 ) << "modified_storage: " << std::to_string( item->serial ) << 
+                      " areaName: " << areaName << ".\n";
+        }
+        else if ( item->orphan() )
+        {
+          gamestate.sqlitedb.deleted_storage.push_back( cfBEu32( item->serial_ext ) );
+          INFO_PRINT_TRACE( 1 ) << "deleted_storage: " << std::to_string( item->serial_ext ) << 
+                      " areaName: " << areaName << ".\n";
+        }
+
+        if ( item->isa( UOBJ_CLASS::CLASS_CONTAINER ) )
+        {
+          std::vector<Items::Item*> sub_cont_items;
+          static_cast<UContainer*>( item )->enumerate_contents( sub_cont_items, ENUMERATE_IGNORE_LOCKED );
+
+          for (auto iteminsubcontainer : sub_cont_items)
+          {
+            gamestate.sqlitedb.remove_from_list(gamestate.sqlitedb.all_storage_serials, iteminsubcontainer->serial);
+            // if ( !iteminsubcontainer->dirty() )
+            // {
+            //   INFO_PRINT_TRACE( 1 ) << "no_dirty_sub_cont_items: " << std::to_string(iteminsubcontainer->serial) << 
+            //               " areaName: " << areaName << ".\n";
+            //   continue;
+            // }
+
+            if ( !iteminsubcontainer->orphan() && iteminsubcontainer->dirty() )
+            {
+              gamestate.sqlitedb.modified_storage.insert( make_pair( iteminsubcontainer, areaName ));
+              INFO_PRINT_TRACE( 1 ) << "modified_sub_cont_items: " << std::to_string(iteminsubcontainer->serial) << 
+                          " areaName: " << areaName << ".\n";
+            }
+            // else if ( iteminsubcontainer->orphan() )
+            // {
+            //   gamestate.sqlitedb.deleted_storage.push_back( cfBEu32( iteminsubcontainer->serial_ext ) );
+            //   INFO_PRINT_TRACE( 1 ) << "deleted_sub_cont_items: " << std::to_string(iteminsubcontainer->serial_ext) << 
+            //               " areaName: " << areaName << ".\n";
+            // }
+            // iteminsubcontainer->clear_dirty();
+          }
+
+
+          // std::unique_ptr<ObjArray> newarr( new ObjArray );
+          // int flags = ENUMERATE_IGNORE_LOCKED;
+          // static_cast<UContainer*>( item )->enumerate_contents( newarr.get(), flags, item->serial );
+
+          // for (auto iteminsubcontainer : newarr.release()->ref_arr)
+          // {
+          //   if ( !item->dirty() )
+          //   {
+          //     INFO_PRINT_TRACE( 1 ) << "no_dirty_storage: " << std::to_string(item->serial) << 
+          //                 " areaName: " << areaName << ".\n";
+          //     continue;
+          //   }
+
+          //   if ( !item->orphan() )
+          //   {
+          //     gamestate.sqlitedb.modified_storage.insert( make_pair( item, areaName ));
+          //     INFO_PRINT_TRACE( 1 ) << "modified_storage: " << std::to_string(item->serial) << 
+          //                 " areaName: " << areaName << ".\n";
+          //   }
+          //   else
+          //   {
+          //     gamestate.sqlitedb.deleted_storage.push_back( cfBEu32( item->serial_ext ) );
+          //     INFO_PRINT_TRACE( 1 ) << "deleted_storage: " << std::to_string(item->serial_ext) << 
+          //                 " areaName: " << areaName << ".\n";
+          //   }
+          //   item->clear_dirty();
+          // }
+        }
+      // }
+      // else
+      // {
+        sw << *item;
+      // }
+    }
   }
 }
 
@@ -365,6 +491,8 @@ void Storage::read( Clib::ConfigFile& cf )
   gamestate.sqlitedb.Connect();
   gamestate.sqlitedb.BeginTransaction();
 
+  INFO_PRINT << "\nStarting import into the database... ";
+
   while ( cf.read( elem ) )
   {
     if ( --num_until_dot == 0 )
@@ -404,6 +532,8 @@ void Storage::read( Clib::ConfigFile& cf )
     ++nobjects;
   }
 
+  INFO_PRINT << "\nDone!\n";
+
   gamestate.sqlitedb.EndTransaction();
 
   clock_t end = clock();
@@ -435,37 +565,38 @@ void Storage::load_items( const u32 container_serial )
   }
 }
 
+void Storage::print( Clib::StreamWriter& sw ) const
+{
+  gamestate.sqlitedb.ListAllStorageItems();
+  // if ( Plib::systemstate.config.enable_sqlite )
+  // {
+  //   for ( const auto& area : areas )
+  //   {
+  //     area.second->print( sw, area.first );
+  //   }
+  // }
+  // else
+  // {
+    for ( const auto& area : areas )
+    {
+      sw() << "StorageArea" << '\n'
+          << "{" << '\n'
+          << "\tName\t" << area.first << '\n'
+          << "}" << '\n'
+          << '\n';
+      area.second->print( sw, area.first );
+      sw() << '\n';
+    }
+  // }
+  gamestate.sqlitedb.find_deleted_storage_items();
+}
+
 void Storage::clear()
 {
   while ( !areas.empty() )
   {
     delete ( ( *areas.begin() ).second );
     areas.erase( areas.begin() );
-  }
-  gamestate.sqlitedb.Close();
-  gamestate.sqlitedb.Connect();
-}
-
-// After import all data to SQLite database, remove txt file
-void Storage::RemoveStorageFile( std::string storagefile )
-{
-  if ( Plib::systemstate.config.enable_sqlite )
-  {
-    // if ( unlink( storagefile.c_str() ) )
-    // {
-    //   int err = errno;
-    //   POLLOG_ERROR.Format( "Unable to delete {}: {} ({})\n" ) << storagefile << strerror( err ) << err;
-    //   throw std::runtime_error( "Data file integrity error" );
-    // }
-
-    // Testing rename instead remove file.
-    std::string oldfile = storagefile + "_oldtxt";
-    if ( rename( storagefile.c_str(), oldfile.c_str() ) )
-    {
-      int err = errno;
-      POLLOG_ERROR.Format( "Unable to rename {} to {}: {} ({})\n" )
-          << storagefile << oldfile << strerror( err ) << err;
-    }
   }
 }
 

@@ -88,6 +88,9 @@ public:
   void BeginTransaction();
   void EndTransaction();
   void RollbackTransaction();
+  void ListAllStorageItems();
+  void remove_from_list(std::vector<u32>& vec, u32 serial);
+  void find_deleted_storage_items();
   void EscapeSequence( std::string& value );
 
   Items::Item* read_item( const std::string& name );

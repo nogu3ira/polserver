@@ -1,10 +1,12 @@
 /** @file sqlitedb.cpp made by Nix (ChaosAge/Mystic)
  *
  * @par History
- * TODO -> 1) make insert/update Item and CProp using BEGIN TRANSATION/COMMIT sql
- *      -> 2) also when SaveWorldState()
- *      -> 3) check sqlite3_column_type when internal type is NULL and requested type is INTEGER
- *            to not convert in 0.
+ * TODO, test this functions with SQLite database
+ * EnumerateItemsInContainer( container, flags := 0 )
+ * MoveItemToContainer( item, container, x := -1, y := -1, add_to_existing_stack := 0 )
+ * MoveObjectToLocation( object, x, y, z, realm := _DEFAULT_REALM, flags := MOVEOBJECT_NORMAL )
+ * FindObjtypeInContainer( container, objtype, flags:=FINDOBJTYPE_RECURSIVE )
+ * SystemFindObjectBySerial( serial, sysfind_flags := 0 )
  */
 
 
@@ -1717,17 +1719,50 @@ void SQLiteDB::UpdateDataStorage()
 {
   if ( Plib::systemstate.config.enable_sqlite )
   {
+    int num_updated = 0;
     SQLiteDB::BeginTransaction();
-    std::map<Items::Item*, std::string>::iterator it = modified_storage.begin();
-    for (it=modified_storage.begin(); it!=modified_storage.end(); ++it)
+    std::map<Items::Item*, std::string>::iterator it = gamestate.sqlitedb.modified_storage.begin();
+    for (it=gamestate.sqlitedb.modified_storage.begin(); it!=gamestate.sqlitedb.modified_storage.end(); ++it)
     {
-      if( !SQLiteDB::UpdateItem( it->first, it->second ) )
+      // check if StorageArea exists
+      // if not, create new StorageArea.
+      if ( !SQLiteDB::ExistInStorage( it->second, table_StorageArea ) )
       {
-        SQLiteDB::RollbackTransaction();
-        throw std::runtime_error( "Data file (Storage) integrity error on update item" );
+        SQLiteDB::AddStorageArea( it->second );
+        ++num_updated;
+        INFO_PRINT_TRACE( 1 ) << "UpdateDataStorage(): StorageArea " << it->second << " added AddStorageArea() in BD.\n";
       }
+
+      // check if item exists
+      // if not, add item.
+      if ( !SQLiteDB::ExistInStorage( it->first->serial, table_Item ) )
+      {
+        auto Container =
+            ( it->first->container != nullptr ) ? it->first->container->serial : 0;
+        if ( !SQLiteDB::AddItem( it->first, it->second, Container ) )
+        {
+          ERROR_PRINT << "UpdateDataStorage(): no added in BD.\n";
+          SQLiteDB::RollbackTransaction();
+          throw std::runtime_error( "Data file (Storage) integrity error on insert item" );
+        }
+        ++num_updated;
+        INFO_PRINT_TRACE( 1 ) << "UpdateDataStorage(): item " << it->first->serial << " added AddItem() in BD.\n";
+      }
+      else
+      {
+        // if yes, update item.
+        if( !SQLiteDB::UpdateItem( it->first, it->second ) )
+        {
+          SQLiteDB::RollbackTransaction();
+          throw std::runtime_error( "Data file (Storage) integrity error on update item" );
+        }
+        ++num_updated;
+        INFO_PRINT_TRACE( 1 ) << "UpdateDataStorage(): item " << it->first->serial << " updated UpdateItem() in BD.\n";
+      }
+      
     }
     SQLiteDB::EndTransaction();
+    INFO_PRINT << std::to_string( num_updated ) << " items updated into SQLite database.\n";
   }
 }
 
@@ -1735,16 +1770,19 @@ void SQLiteDB::DeleteDataStorage()
 {
   if ( Plib::systemstate.config.enable_sqlite )
   {
+    int num_removed = 0;
     SQLiteDB::BeginTransaction();
-    for ( unsigned i = 0; i < objStorageManager.deleted_serials.size(); ++i )
+    for ( unsigned i = 0; i < gamestate.sqlitedb.deleted_storage.size(); ++i )
     {
-      if( !SQLiteDB::RemoveItem( objStorageManager.deleted_serials[i] ) )
+      if( !SQLiteDB::RemoveItem( gamestate.sqlitedb.deleted_storage[i] ) )
       {
         SQLiteDB::RollbackTransaction();
         throw std::runtime_error( "Data file (Storage) integrity error on remove item" );
       }
+      ++num_removed;
     }
     SQLiteDB::EndTransaction();
+    INFO_PRINT << std::to_string( num_removed ) << " items removed into SQLite database.\n";
   }
 }
 
@@ -1906,6 +1944,59 @@ void SQLiteDB::RollbackTransaction()
 {
   if ( Plib::systemstate.config.enable_sqlite )
     sqlite3_exec(gamestate.sqlitedb.db, "ROLLBACK TRANSACTION", NULL, NULL, NULL);
+}
+
+void SQLiteDB::ListAllStorageItems()
+{
+  std::string sqlquery = "SELECT Serial FROM ";
+  sqlquery += prefix_table;
+  sqlquery += table_Item;
+
+  sqlite3_stmt* stmt;
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
+  if ( rc != SQLITE_OK )
+  {
+    Finish( stmt );
+    return;
+  }
+  while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
+  {
+    gamestate.sqlitedb.all_storage_serials.push_back( sqlite3_column_int( stmt, 0 ) );
+  }
+  if ( rc != SQLITE_DONE )
+  {
+    Finish( stmt );
+    return;
+  }
+  Finish( stmt, 0 );
+}
+
+void SQLiteDB::remove_from_list(std::vector<u32>& vec, u32 serial)
+{
+  vec.erase(std::remove(vec.begin(), vec.end(), serial), vec.end());
+}
+
+void SQLiteDB::find_deleted_storage_items()
+{
+  for ( auto serial : gamestate.sqlitedb.all_storage_serials )
+  {
+    // found moved item to another txt data
+    Items::Item* item = system_find_item( serial );
+    if ( item != nullptr )
+    {
+      gamestate.sqlitedb.deleted_storage.push_back( item->serial );
+      INFO_PRINT_TRACE( 1 ) << "deleted_sub_cont_items (moved): " << std::to_string( item->serial ) << ".\n";
+      continue;
+    }
+
+    // found orphan item to another txt data
+    UObject* obj = objStorageManager.objecthash.Find( serial );
+    if ( obj != nullptr && obj->isitem() && obj->orphan() )
+    {
+      gamestate.sqlitedb.deleted_storage.push_back( cfBEu32( static_cast<Items::Item*>( obj )->serial_ext ) );
+      INFO_PRINT_TRACE( 1 ) << "deleted_sub_cont_items (orphan): " << std::to_string( static_cast<Items::Item*>( obj )->serial_ext ) << ".\n";
+    }
+  }
 }
 
 }  // namespace Core

@@ -41,7 +41,7 @@ public:
   bool delete_root_item( const std::string& name );
   void on_delete_realm( Realms::Realm* realm );
 
-  void print( Clib::StreamWriter& sw ) const;
+  void print( Clib::StreamWriter& sw, std::string areaName ) const;
   void load_item( Clib::ConfigElem& elem, const std::string& areaName );
   size_t estimateSize() const;
 
