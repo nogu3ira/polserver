@@ -1764,7 +1764,10 @@ COMMIT;                                                 \
 void SQLiteDB::BeginTransaction()
 {
   if ( Plib::systemstate.config.enable_sqlite )
+  {
+    sqlite3_exec(gamestate.sqlitedb.db, "PRAGMA cache_size=100000", NULL, NULL, NULL);
     sqlite3_exec(gamestate.sqlitedb.db, "BEGIN TRANSACTION", NULL, NULL, NULL);
+  }
 }
 
 void SQLiteDB::EndTransaction()
