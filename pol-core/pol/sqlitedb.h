@@ -41,7 +41,7 @@ public:
   SQLiteDB();
   ~SQLiteDB();
 
-  sqlite3* db = NULL;
+  sqlite3* db = nullptr;
   std::string prefix_table = "storage_";
   std::string table_Item = "Item";
   std::string table_CProp = "CProp";
