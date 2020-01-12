@@ -116,8 +116,12 @@ Items::Item* SQLiteDB::read_item( const std::string& name )
 {
   ItemInfoDB iteminfo;
   std::map<std::string, std::string> CProps;
+
+  SQLiteDB::BeginTransaction();
   SQLiteDB::GetItem( name, &iteminfo );
   SQLiteDB::GetCProp( iteminfo.ItemId, CProps );
+  SQLiteDB::EndTransaction();
+
   return SQLiteDB::create_item_ref( &iteminfo, CProps );
 }
 
