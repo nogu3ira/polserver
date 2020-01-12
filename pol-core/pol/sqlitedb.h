@@ -71,6 +71,7 @@ public:
   void ListStorageAreas();
   void Finish( sqlite3_stmt*& stmt, int x = 1 );
   void AddStorageArea( const std::string& name );
+  void GetCProp( const int ItemId, std::map<std::string, std::string>& CProps );
   void PrepareCProp( Items::Item* item, std::map<std::string, std::string>& allproperties );
   void query_value( std::string& q, const std::string& v, bool last = false );
   void query_value2( std::string& query, const std::string& column_name, const std::string& new_value, bool last = false );
@@ -86,7 +87,7 @@ public:
   void RollbackTransaction();
 
   Items::Item* read_item( const std::string& name );
-  Items::Item* create_item_ref( struct ItemInfoDB* i );
+  Items::Item* create_item_ref( struct ItemInfoDB* i, std::map<std::string, std::string>& CProps );
 
 private:
 };

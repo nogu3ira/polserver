@@ -111,12 +111,14 @@ struct ItemInfoDB
 Items::Item* SQLiteDB::read_item( const std::string& name )
 {
   ItemInfoDB iteminfo;
+  std::map<std::string, std::string> CProps;
   SQLiteDB::GetItem( name, &iteminfo );
-  return SQLiteDB::create_item_ref( &iteminfo );
+  SQLiteDB::GetCProp( iteminfo.ItemId, CProps );
+  return SQLiteDB::create_item_ref( &iteminfo, CProps );
 }
 
 // Create item reference found in SQLite Database
-Items::Item* SQLiteDB::create_item_ref( struct ItemInfoDB* i )
+Items::Item* SQLiteDB::create_item_ref( struct ItemInfoDB* i, std::map<std::string, std::string>& CProps )
 {
   u32 serial = i->Serial;
   u32 objtype = i->ObjType;
@@ -271,6 +273,12 @@ Items::Item* SQLiteDB::create_item_ref( struct ItemInfoDB* i )
 
   //
   // proplist_.readProperties( elem ); //LEITURA DAS CPROPS
+
+  //Read CProps
+  for ( const auto& kv : CProps )
+  {
+    item->setprop( kv.first, kv.second );
+  }
 
   //<-------------------------------
 
@@ -1139,6 +1147,41 @@ int SQLiteDB::Last_Rowid()
   }
   Finish( stmt, 0 );
   return rowid;
+}
+
+void SQLiteDB::GetCProp( const int ItemId, std::map<std::string, std::string>& CProps )
+{
+  std::string sqlquery = "SELECT PropName, PropValue FROM ";
+  sqlquery += prefix_table;
+  sqlquery += table_CProp;
+  sqlquery += " WHERE ItemId = '";
+  sqlquery += std::to_string( ItemId );
+  sqlquery += "'";
+
+  sqlite3_stmt* stmt;
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
+  if ( rc != SQLITE_OK )
+  {
+    ERROR_PRINT << "GetCProp: algum problema no prepare_query.\n";
+    Finish( stmt );
+    return;
+  }
+  while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
+  {
+    if ( ( sqlite3_column_type(stmt, 0) != SQLITE_NULL ) && ( sqlite3_column_type(stmt, 1) != SQLITE_NULL ) )
+    {
+      auto PropName = std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 0 ) ) );
+      auto PropValue = std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 1 ) ) );
+      CProps.insert( make_pair( PropName, PropValue ) );
+    }
+  }
+  if ( rc != SQLITE_DONE )
+  {
+    ERROR_PRINT << "GetCProp: algum problema no select.\n";
+    Finish( stmt );
+    return;
+  }
+  Finish( stmt, 0 );
 }
 
 bool SQLiteDB::RemoveCProp( const int ItemId )
