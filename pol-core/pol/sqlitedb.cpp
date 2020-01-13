@@ -98,7 +98,7 @@ void SQLiteDB::insert_item( Items::Item* item, const std::string& areaName, cons
 
 struct ItemInfoDB
 {
-  int ItemId, StorageAreaId, Serial, ObjType, Graphic, Color, X, Y, Z, Facing, Revision, Amount,
+  int StorageAreaId, Serial, ObjType, Graphic, Color, X, Y, Z, Facing, Revision, Amount,
       Layer, Movable, Invisible, Container, DecayAt, SellPrice, BuyPrice, Newbie, Insured,
       FireResist, ColdResist, EnergyResist, PoisonResist, PhysicalResist, FireDamage, ColdDamage,
       EnergyDamage, PoisonDamage, PhysicalDamage, LowerReagentCost, SpellDamageIncrease,
@@ -116,45 +116,56 @@ struct ItemInfoDB
 // Read item from SQLite Database
 Items::Item* SQLiteDB::read_item( const std::string& name )
 {
+  clock_t start = clock();
   ItemInfoDB iteminfo;
   std::map<std::string, std::string> CProps;
 
   SQLiteDB::BeginTransaction();
   SQLiteDB::GetItem( name, &iteminfo );
-  SQLiteDB::GetCProp( iteminfo.ItemId, CProps );
+  SQLiteDB::GetCProp( iteminfo.Serial, CProps );
   SQLiteDB::EndTransaction();
 
-  return SQLiteDB::create_item_ref( &iteminfo, CProps );
+  Items::Item* Item = SQLiteDB::create_item_ref( &iteminfo, CProps );
+  clock_t end = clock();
+  int ms = static_cast<int>( ( end - start ) * 1000.0 / CLOCKS_PER_SEC );
+  INFO_PRINT << " " << "1 item in " << ms << " ms.\n";
+
+  return Item;
 }
 
 // Read items in container from SQLite Database
 std::map<Items::Item*, u32> SQLiteDB::read_items_in_container( const u32 container_serial )
 {
+  clock_t start = clock();
+  unsigned int nobjects = 0;
   std::vector<ItemInfoDB> ItemsInfo;
+  std::vector<u32> ItemsInfoSerial;
   std::map<Items::Item*, u32> ItemsRef;
 
   SQLiteDB::BeginTransaction();
   // list contents of root containers
-  int found_item = SQLiteDB::GetItems( container_serial, ItemsInfo );
+  int found_item = SQLiteDB::GetItems( container_serial, ItemsInfo, ItemsInfoSerial );
 
   // list contents of sub-containers
   while( found_item > 0 )
   {
-    found_item = 0;
-    for (auto iteminfo : ItemsInfo)
-    {
-      found_item += SQLiteDB::GetItems( iteminfo.Serial, ItemsInfo );
-    }
+    found_item = SQLiteDB::GetItems( 0, ItemsInfo, ItemsInfoSerial );
   }
 
-  for (auto iteminfo : ItemsInfo)
+  for ( auto iteminfo : ItemsInfo )
   {
     std::map<std::string, std::string> CProps;
-    SQLiteDB::GetCProp( iteminfo.ItemId, CProps );
+    SQLiteDB::GetCProp( iteminfo.Serial, CProps );
     Items::Item* item = SQLiteDB::create_item_ref( &iteminfo, CProps );
     ItemsRef.insert( { item, iteminfo.Container } );
+    ++nobjects;
   }
   SQLiteDB::EndTransaction();
+
+  clock_t end = clock();
+  int ms = static_cast<int>( ( end - start ) * 1000.0 / CLOCKS_PER_SEC );
+  INFO_PRINT << " " << nobjects << " items in " << ms << " ms.\n";
+
   return ItemsRef;
 }
 
@@ -636,36 +647,6 @@ int SQLiteDB::GetIdArea( const std::string& name )
   return StorageAreaId;
 }
 
-int SQLiteDB::GetItemId( const std::string& name )
-{
-  int ItemId = 0;
-  std::string sqlquery = "SELECT ItemId FROM ";
-  sqlquery += prefix_table;
-  sqlquery += table_Item;
-  sqlquery += " WHERE Serial='";
-  sqlquery += name;
-  sqlquery += "'";
-
-  sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
-  if ( rc != SQLITE_OK )
-  {
-    Finish( stmt );
-    return 0;
-  }
-  while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
-  {
-    ItemId = sqlite3_column_int( stmt, 0 );
-  }
-  if ( rc != SQLITE_DONE )
-  {
-    Finish( stmt );
-    return 0;
-  }
-  Finish( stmt, 0 );
-  return ItemId;
-}
-
 void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
 {
   INFO_PRINT_TRACE( 1 ) << "GetItem: start method.\n";
@@ -700,26 +681,57 @@ void SQLiteDB::GetItem( const std::string& name, struct ItemInfoDB* i )
   INFO_PRINT_TRACE( 1 ) << "GetItem: OK.\n";
 }
 
-int SQLiteDB::GetItems( const u32 container_serial, std::vector<ItemInfoDB>& ItemsInContainer )
+void SQLiteDB::PrepareQueryGetItems( sqlite3_stmt*& stmt, int params )
 {
-  INFO_PRINT_TRACE( 1 ) << "GetItems: start method.\n";
-
   std::string sqlquery = "SELECT * FROM ";
   sqlquery += prefix_table;
   sqlquery += table_Item;
-  sqlquery += " WHERE Container = '";
-  sqlquery += std::to_string(container_serial);
-  sqlquery += "'";
+  sqlquery += " WHERE Container = ?";
 
-  int count = 0;
-  sqlite3_stmt* stmt;
+  if ( params > 1)
+  {
+    for ( unsigned i = 1; i < params; ++i )
+    {
+      sqlquery += " OR Container = ?";
+    }
+  }
+
   int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
   if ( rc != SQLITE_OK )
   {
     ERROR_PRINT << "GetItems: some problem with prepare query.\n";
     Finish( stmt );
-    return count;
   }
+}
+
+int SQLiteDB::GetItems( const u32 container_serial, 
+                        std::vector<ItemInfoDB>& ItemsInContainer, std::vector<u32>& ItemsInfoSerial )
+{
+  INFO_PRINT_TRACE( 1 ) << "GetItems: start method.\n";
+
+  int count = 0;
+  int rc = 0;
+  sqlite3_stmt* stmt;
+
+  // first search
+  if ( container_serial != 0 )
+  {
+    SQLiteDB::PrepareQueryGetItems( stmt, 1 );
+    rc = sqlite3_bind_int( stmt, 1, container_serial );
+  }
+  // search contents of sub-containers
+  else
+  {
+    int params = static_cast<int>( ItemsInfoSerial.size() );
+    SQLiteDB::PrepareQueryGetItems( stmt, params );
+    for ( unsigned i = 1; i <= params; ++i )
+    {
+      rc = sqlite3_bind_int( stmt, i, ItemsInfoSerial[i] );
+    }
+  }
+
+  ItemsInfoSerial.clear();
+
   while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
   {
     INFO_PRINT_TRACE( 1 ) << "GetItems: insde while.\n";
@@ -730,7 +742,8 @@ int SQLiteDB::GetItems( const u32 container_serial, std::vector<ItemInfoDB>& Ite
     if ( CanAddItemInfo( i.Serial, ItemsInContainer ) )
     {
       ItemsInContainer.push_back(i);
-      ++count;
+      ItemsInfoSerial.push_back(i.Serial);
+      count = 1;
     }
   }
   if ( rc != SQLITE_DONE )
@@ -784,104 +797,103 @@ bool SQLiteDB::CanAddItemInfo( const u32 serial, std::vector<ItemInfoDB> ItemsIn
 
 void SQLiteDB::PrepareItemInfo( sqlite3_stmt* stmt, struct ItemInfoDB* i )
 {
-    i->ItemId = sqlite3_column_int( stmt, 0 );
-    i->StorageAreaId = sqlite3_column_int( stmt, 1 );
+    i->StorageAreaId = sqlite3_column_int( stmt, 0 );
 
-    if ( sqlite3_column_type(stmt, 2) != SQLITE_NULL )
-      i->Name = std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 2 ) ) );
+    if ( sqlite3_column_type(stmt, 1) != SQLITE_NULL )
+      i->Name = std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 1 ) ) );
 
-    i->Serial = sqlite3_column_int( stmt, 3 );
-    i->ObjType = sqlite3_column_int( stmt, 4 );
-    i->Graphic = sqlite3_column_int( stmt, 5 );
-    i->Color = sqlite3_column_int( stmt, 6 );
-    i->X = sqlite3_column_int( stmt, 7 );
-    i->Y = sqlite3_column_int( stmt, 8 );
-    i->Z = sqlite3_column_int( stmt, 9 );
-    i->Facing = sqlite3_column_int( stmt, 10 );
-    i->Revision = sqlite3_column_int( stmt, 11 );
+    i->Serial = sqlite3_column_int( stmt, 2 );
+    i->ObjType = sqlite3_column_int( stmt, 3 );
+    i->Graphic = sqlite3_column_int( stmt, 4 );
+    i->Color = sqlite3_column_int( stmt, 5 );
+    i->X = sqlite3_column_int( stmt, 6 );
+    i->Y = sqlite3_column_int( stmt, 7 );
+    i->Z = sqlite3_column_int( stmt, 8 );
+    i->Facing = sqlite3_column_int( stmt, 9 );
+    i->Revision = sqlite3_column_int( stmt, 10 );
 
-    if ( sqlite3_column_type(stmt, 12) != SQLITE_NULL )
-      i->Realm = std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 12 ) ) );
+    if ( sqlite3_column_type(stmt, 11) != SQLITE_NULL )
+      i->Realm = std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 11 ) ) );
 
-    i->Amount = sqlite3_column_int( stmt, 13 );
-    i->Layer = sqlite3_column_int( stmt, 14 );
-    i->Movable = sqlite3_column_int( stmt, 15 );
-    i->Invisible = sqlite3_column_int( stmt, 16 );
-    i->Container = sqlite3_column_int( stmt, 17 );
+    i->Amount = sqlite3_column_int( stmt, 12 );
+    i->Layer = sqlite3_column_int( stmt, 13 );
+    i->Movable = sqlite3_column_int( stmt, 14 );
+    i->Invisible = sqlite3_column_int( stmt, 15 );
+    i->Container = sqlite3_column_int( stmt, 16 );
+
+    if ( sqlite3_column_type(stmt, 17) != SQLITE_NULL )
+      i->OnUseScript =
+        std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 17 ) ) );
 
     if ( sqlite3_column_type(stmt, 18) != SQLITE_NULL )
-      i->OnUseScript =
+      i->EquipScript =
         std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 18 ) ) );
 
     if ( sqlite3_column_type(stmt, 19) != SQLITE_NULL )
-      i->EquipScript =
+      i->UnequipScript =
         std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 19 ) ) );
 
-    if ( sqlite3_column_type(stmt, 20) != SQLITE_NULL )
-      i->UnequipScript =
-        std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 20 ) ) );
+    i->DecayAt = sqlite3_column_int( stmt, 20 );
+    i->SellPrice = sqlite3_column_int( stmt, 21 );
+    i->BuyPrice = sqlite3_column_int( stmt, 22 );
+    i->Newbie = sqlite3_column_int( stmt, 23 );
+    i->Insured = sqlite3_column_int( stmt, 24 );
+    i->FireResist = sqlite3_column_int( stmt, 25 );
+    i->ColdResist = sqlite3_column_int( stmt, 26 );
+    i->EnergyResist = sqlite3_column_int( stmt, 27 );
+    i->PoisonResist = sqlite3_column_int( stmt, 28 );
+    i->PhysicalResist = sqlite3_column_int( stmt, 29 );
+    i->FireDamage = sqlite3_column_int( stmt, 30 );
+    i->ColdDamage = sqlite3_column_int( stmt, 31 );
+    i->EnergyDamage = sqlite3_column_int( stmt, 32 );
+    i->PoisonDamage = sqlite3_column_int( stmt, 33 );
+    i->PhysicalDamage = sqlite3_column_int( stmt, 34 );
+    i->LowerReagentCost = sqlite3_column_int( stmt, 35 );
+    i->SpellDamageIncrease = sqlite3_column_int( stmt, 36 );
+    i->FasterCasting = sqlite3_column_int( stmt, 37 );
+    i->FasterCastRecovery = sqlite3_column_int( stmt, 38 );
+    i->DefenceIncrease = sqlite3_column_int( stmt, 39 );
+    i->DefenceIncreaseCap = sqlite3_column_int( stmt, 40 );
+    i->LowerManaCost = sqlite3_column_int( stmt, 41 );
+    i->HitChance = sqlite3_column_int( stmt, 42 );
+    i->FireResistCap = sqlite3_column_int( stmt, 43 );
+    i->ColdResistCap = sqlite3_column_int( stmt, 44 );
+    i->EnergyResistCap = sqlite3_column_int( stmt, 45 );
+    i->PhysicalResistCap = sqlite3_column_int( stmt, 46 );
+    i->PoisonResistCap = sqlite3_column_int( stmt, 47 );
+    i->Luck = sqlite3_column_int( stmt, 48 );
+    i->MaxHp_mod = sqlite3_column_int( stmt, 49 );
+    i->Hp = sqlite3_column_int( stmt, 50 );
+    i->Quality = sqlite3_column_int( stmt, 51 );
 
-    i->DecayAt = sqlite3_column_int( stmt, 21 );
-    i->SellPrice = sqlite3_column_int( stmt, 22 );
-    i->BuyPrice = sqlite3_column_int( stmt, 23 );
-    i->Newbie = sqlite3_column_int( stmt, 24 );
-    i->Insured = sqlite3_column_int( stmt, 25 );
-    i->FireResist = sqlite3_column_int( stmt, 26 );
-    i->ColdResist = sqlite3_column_int( stmt, 27 );
-    i->EnergyResist = sqlite3_column_int( stmt, 28 );
-    i->PoisonResist = sqlite3_column_int( stmt, 29 );
-    i->PhysicalResist = sqlite3_column_int( stmt, 30 );
-    i->FireDamage = sqlite3_column_int( stmt, 31 );
-    i->ColdDamage = sqlite3_column_int( stmt, 32 );
-    i->EnergyDamage = sqlite3_column_int( stmt, 33 );
-    i->PoisonDamage = sqlite3_column_int( stmt, 34 );
-    i->PhysicalDamage = sqlite3_column_int( stmt, 35 );
-    i->LowerReagentCost = sqlite3_column_int( stmt, 36 );
-    i->SpellDamageIncrease = sqlite3_column_int( stmt, 37 );
-    i->FasterCasting = sqlite3_column_int( stmt, 38 );
-    i->FasterCastRecovery = sqlite3_column_int( stmt, 39 );
-    i->DefenceIncrease = sqlite3_column_int( stmt, 40 );
-    i->DefenceIncreaseCap = sqlite3_column_int( stmt, 41 );
-    i->LowerManaCost = sqlite3_column_int( stmt, 42 );
-    i->HitChance = sqlite3_column_int( stmt, 43 );
-    i->FireResistCap = sqlite3_column_int( stmt, 44 );
-    i->ColdResistCap = sqlite3_column_int( stmt, 45 );
-    i->EnergyResistCap = sqlite3_column_int( stmt, 46 );
-    i->PhysicalResistCap = sqlite3_column_int( stmt, 47 );
-    i->PoisonResistCap = sqlite3_column_int( stmt, 48 );
-    i->Luck = sqlite3_column_int( stmt, 49 );
-    i->MaxHp_mod = sqlite3_column_int( stmt, 50 );
-    i->Hp = sqlite3_column_int( stmt, 51 );
-    i->Quality = sqlite3_column_int( stmt, 52 );
+    if ( sqlite3_column_type(stmt, 52) != SQLITE_NULL )
+      i->NameSuffix = std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 52 ) ) );
 
-    if ( sqlite3_column_type(stmt, 53) != SQLITE_NULL )
-      i->NameSuffix = std::string( reinterpret_cast<const char*>( sqlite3_column_text( stmt, 53 ) ) );
-
-    i->NoDrop = sqlite3_column_int( stmt, 54 );
-    i->FireResistMod = sqlite3_column_int( stmt, 55 );
-    i->ColdResistMod = sqlite3_column_int( stmt, 56 );
-    i->EnergyResistMod = sqlite3_column_int( stmt, 57 );
-    i->PoisonResistMod = sqlite3_column_int( stmt, 58 );
-    i->PhysicalResistMod = sqlite3_column_int( stmt, 59 );
-    i->FireDamageMod = sqlite3_column_int( stmt, 60 );
-    i->ColdDamageMod = sqlite3_column_int( stmt, 61 );
-    i->EnergyDamageMod = sqlite3_column_int( stmt, 62 );
-    i->PoisonDamageMod = sqlite3_column_int( stmt, 63 );
-    i->PhysicalDamageMod = sqlite3_column_int( stmt, 64 );
-    i->LowerReagentCostMod = sqlite3_column_int( stmt, 65 );
-    i->DefenceIncreaseMod = sqlite3_column_int( stmt, 66 );
-    i->DefenceIncreaseCapMod = sqlite3_column_int( stmt, 67 );
-    i->LowerManaCostMod = sqlite3_column_int( stmt, 68 );
-    i->HitChanceMod = sqlite3_column_int( stmt, 69 );
-    i->FireResistCapMod = sqlite3_column_int( stmt, 70 );
-    i->ColdResistCapMod = sqlite3_column_int( stmt, 71 );
-    i->EnergyResistCapMod = sqlite3_column_int( stmt, 72 );
-    i->PhysicalResistCapMod = sqlite3_column_int( stmt, 73 );
-    i->PoisonResistCapMod = sqlite3_column_int( stmt, 74 );
-    i->SpellDamageIncreaseMod = sqlite3_column_int( stmt, 75 );
-    i->FasterCastingMod = sqlite3_column_int( stmt, 76 );
-    i->FasterCastRecoveryMod = sqlite3_column_int( stmt, 77 );
-    i->LuckMod = sqlite3_column_int( stmt, 78 );
+    i->NoDrop = sqlite3_column_int( stmt, 53 );
+    i->FireResistMod = sqlite3_column_int( stmt, 54 );
+    i->ColdResistMod = sqlite3_column_int( stmt, 55 );
+    i->EnergyResistMod = sqlite3_column_int( stmt, 56 );
+    i->PoisonResistMod = sqlite3_column_int( stmt, 57 );
+    i->PhysicalResistMod = sqlite3_column_int( stmt, 58 );
+    i->FireDamageMod = sqlite3_column_int( stmt, 59 );
+    i->ColdDamageMod = sqlite3_column_int( stmt, 60 );
+    i->EnergyDamageMod = sqlite3_column_int( stmt, 61 );
+    i->PoisonDamageMod = sqlite3_column_int( stmt, 62 );
+    i->PhysicalDamageMod = sqlite3_column_int( stmt, 63 );
+    i->LowerReagentCostMod = sqlite3_column_int( stmt, 64 );
+    i->DefenceIncreaseMod = sqlite3_column_int( stmt, 65 );
+    i->DefenceIncreaseCapMod = sqlite3_column_int( stmt, 66 );
+    i->LowerManaCostMod = sqlite3_column_int( stmt, 67 );
+    i->HitChanceMod = sqlite3_column_int( stmt, 68 );
+    i->FireResistCapMod = sqlite3_column_int( stmt, 69 );
+    i->ColdResistCapMod = sqlite3_column_int( stmt, 70 );
+    i->EnergyResistCapMod = sqlite3_column_int( stmt, 71 );
+    i->PhysicalResistCapMod = sqlite3_column_int( stmt, 72 );
+    i->PoisonResistCapMod = sqlite3_column_int( stmt, 73 );
+    i->SpellDamageIncreaseMod = sqlite3_column_int( stmt, 74 );
+    i->FasterCastingMod = sqlite3_column_int( stmt, 75 );
+    i->FasterCastRecoveryMod = sqlite3_column_int( stmt, 76 );
+    i->LuckMod = sqlite3_column_int( stmt, 77 );
 }
 
 bool SQLiteDB::RemoveItem( const std::string& name )
@@ -952,7 +964,6 @@ bool SQLiteDB::RemoveItem( const u32 serial )
 
 bool SQLiteDB::UpdateItem( Items::Item* item, const std::string& areaName )
 {
-  //auto ItemId = "NULL";
   auto StorageAreaId = std::to_string( GetIdArea( areaName ) );
 
   std::string Name;
@@ -1105,7 +1116,6 @@ bool SQLiteDB::UpdateItem( Items::Item* item, const std::string& areaName )
   s += prefix_table;
   s += table_Item;
   s += " SET";
-  //query_value2( s, ItemId );
   query_value2( s, "StorageAreaId", StorageAreaId );
   query_value2( s, "Name", Name );
   //query_value2( s, "Serial", Serial );
@@ -1184,9 +1194,8 @@ bool SQLiteDB::UpdateItem( Items::Item* item, const std::string& areaName )
   query_value2( s, "FasterCastingMod", FasterCastingMod );
   query_value2( s, "FasterCastRecoveryMod", FasterCastRecoveryMod );
   query_value2( s, "LuckMod", LuckMod, true );
-  s += " WHERE Serial = '";
+  s += " WHERE Serial = ";
   s += Serial;
-  s += "'";
 
   sqlite3_stmt* stmt;
   int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, s.c_str(), -1, &stmt, NULL );
@@ -1210,20 +1219,11 @@ bool SQLiteDB::UpdateItem( Items::Item* item, const std::string& areaName )
   }
   Finish( stmt, 0 );
 
-  int ItemId = GetItemId(Serial);
+  RemoveCProp( item->serial );
 
-  if ( !ItemId )
+  if ( !AddCProp( item ) )
   {
-    ERROR_PRINT << "Storage: No ItemId found. Serial: " << Serial << "\n";
-    Finish( stmt );
-    return false;
-  }
-
-  RemoveCProp( ItemId );
-
-  if ( !AddCProp( item, ItemId ) )
-  {
-    ERROR_PRINT << "Storage: No CProp inserted. ItemId: " << ItemId << "\n";
+    ERROR_PRINT << "Storage: No CProp inserted. Serial: " << Serial << "\n";
     Finish( stmt );
     return false;
   }
@@ -1265,39 +1265,13 @@ void SQLiteDB::query_value2( std::string& query, const std::string& column_name,
   SQLiteDB::query_value( query, new_value, last );
 }
 
-int SQLiteDB::Last_Rowid()
-{
-  int rowid = 0;
-  std::string sqlquery = "SELECT last_insert_rowid()";
-
-  sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
-  if ( rc != SQLITE_OK )
-  {
-    Finish( stmt );
-    return 0;
-  }
-  while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
-  {
-    rowid = sqlite3_column_int( stmt, 0 );
-  }
-  if ( rc != SQLITE_DONE )
-  {
-    Finish( stmt );
-    return 0;
-  }
-  Finish( stmt, 0 );
-  return rowid;
-}
-
-void SQLiteDB::GetCProp( const int ItemId, std::map<std::string, std::string>& CProps )
+void SQLiteDB::GetCProp( const int Serial, std::map<std::string, std::string>& CProps )
 {
   std::string sqlquery = "SELECT PropName, PropValue FROM ";
   sqlquery += prefix_table;
   sqlquery += table_CProp;
-  sqlquery += " WHERE ItemId = '";
-  sqlquery += std::to_string( ItemId );
-  sqlquery += "'";
+  sqlquery += " WHERE Serial = ";
+  sqlquery += std::to_string( Serial );
 
   sqlite3_stmt* stmt;
   int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
@@ -1325,14 +1299,13 @@ void SQLiteDB::GetCProp( const int ItemId, std::map<std::string, std::string>& C
   Finish( stmt, 0 );
 }
 
-bool SQLiteDB::RemoveCProp( const int ItemId )
+bool SQLiteDB::RemoveCProp( const int Serial )
 {
   std::string sqlquery = "DELETE FROM ";
   sqlquery += prefix_table;
   sqlquery += table_CProp;
-  sqlquery += " WHERE ItemId = '";
-  sqlquery += std::to_string( ItemId );
-  sqlquery += "'";
+  sqlquery += " WHERE Serial = ";
+  sqlquery += std::to_string( Serial );
 
   sqlite3_stmt* stmt;
   int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
@@ -1350,7 +1323,7 @@ bool SQLiteDB::RemoveCProp( const int ItemId )
   }
   else if ( sqlite3_changes( gamestate.sqlitedb.db ) == 0 )
   {
-    ERROR_PRINT << "Storage: No CProp deleted. ItemId: " << std::to_string( ItemId ) << "\n";
+    ERROR_PRINT << "Storage: No CProp deleted. Serial: " << std::to_string( Serial ) << "\n";
     Finish( stmt );
     return false;
   }
@@ -1387,39 +1360,30 @@ void SQLiteDB::EscapeSequence( std::string& value )
   boost::replace_all(value, "\'", "\'\'");
 }
 
-bool SQLiteDB::AddCProp( Items::Item* item, const int last_rowid )
+bool SQLiteDB::AddCProp( Items::Item* item )
 {
   std::map<std::string, std::string> allproperties;
   PrepareCProp( item, allproperties );
 
-  auto CPropId = "NULL";
-  auto ItemId = std::to_string( last_rowid );
+  std::string s = "INSERT INTO ";
+  s += prefix_table;
+  s += table_CProp;
+  s += " VALUES(?, ?, ?)";
+
+  sqlite3_stmt* stmt;
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, s.c_str(), -1, &stmt, NULL );
+  if ( rc != SQLITE_OK )
+  {
+    Finish( stmt );
+    return false;
+  }
 
   for ( const auto& kv : allproperties )
   {
-    std::string propname = kv.first;
-    EscapeSequence( propname );
+    rc = sqlite3_bind_int( stmt, 1, item->serial );       // Serial
+    rc = sqlite3_bind_text( stmt, 2, kv.first.c_str(), -1, SQLITE_TRANSIENT );  // PropName
+    rc = sqlite3_bind_text( stmt, 3, kv.second.c_str(), -1, SQLITE_TRANSIENT ); // PropValue
 
-    std::string propvalue = kv.second;
-    EscapeSequence( propvalue );
-
-    std::string s = "INSERT INTO ";
-    s += prefix_table;
-    s += table_CProp;
-    s += " VALUES(";
-    query_value( s, CPropId );
-    query_value( s, propname );
-    query_value( s, propvalue );
-    query_value( s, ItemId, true );
-    s += ")";
-
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, s.c_str(), -1, &stmt, NULL );
-    if ( rc != SQLITE_OK )
-    {
-      Finish( stmt );
-      return false;
-    }
     rc = sqlite3_step( stmt );
 
     if ( rc != SQLITE_DONE )
@@ -1433,14 +1397,14 @@ bool SQLiteDB::AddCProp( Items::Item* item, const int last_rowid )
       Finish( stmt );
       return false;
     }
-    Finish( stmt, 0 );
+    sqlite3_clear_bindings( stmt );
   }
+  Finish( stmt, 0 );
   return true;
 }
 
 bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName, const u32 container_serial )
 {
-  auto ItemId = "NULL";
   auto StorageAreaId = std::to_string( GetIdArea( areaName ) );
 
   std::string Name;
@@ -1591,7 +1555,6 @@ bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName, const u3
   s += prefix_table;
   s += table_Item;
   s += " VALUES(";
-  query_value( s, ItemId );
   query_value( s, StorageAreaId );
   query_value( s, Name );
   query_value( s, Serial );
@@ -1694,17 +1657,7 @@ bool SQLiteDB::AddItem( Items::Item* item, const std::string& areaName, const u3
   }
   Finish( stmt, 0 );
 
-  int last_rowid = Last_Rowid();
-
-  if ( !last_rowid )
-  {
-    ERROR_PRINT << "Storage: No lastRowId found.\n";
-    Finish( stmt );
-    SQLiteDB::RollbackTransaction();
-    throw std::runtime_error( "Data file integrity error" );
-  }
-
-  if ( !AddCProp( item, last_rowid ) )
+  if ( !AddCProp( item ) )
   {
     ERROR_PRINT << "Storage: No CProp inserted.\n";
     Finish( stmt );
@@ -1803,7 +1756,6 @@ bool SQLiteDB::CreateDatabase()
   std::string sqlquery = "								\
 BEGIN TRANSACTION;										\
 CREATE TABLE IF NOT EXISTS 'storage_Item' (             \
-	'ItemId'	INTEGER NOT NULL,                       \
 	'StorageAreaId'	INTEGER NOT NULL,                   \
 	'Name'	TEXT,                                       \
 	'Serial'	INTEGER NOT NULL UNIQUE,                \
@@ -1882,7 +1834,6 @@ CREATE TABLE IF NOT EXISTS 'storage_Item' (             \
 	'FasterCastingMod'	INTEGER,                        \
 	'FasterCastRecoveryMod'	INTEGER,                    \
 	'LuckMod'	INTEGER,                                \
-	PRIMARY KEY('ItemId'),                              \
 	FOREIGN KEY('StorageAreaId')                        \
 	REFERENCES 'storage_StorageArea'('StorageAreaId')   \
 	ON UPDATE CASCADE ON DELETE CASCADE                 \
@@ -1893,18 +1844,27 @@ CREATE TABLE IF NOT EXISTS 'storage_StorageArea' (      \
 	PRIMARY KEY('StorageAreaId')                        \
 );                                                      \
 CREATE TABLE IF NOT EXISTS 'storage_CProp' (            \
-	'CPropId'	INTEGER NOT NULL,                       \
+	'Serial'	INTEGER NOT NULL,                       \
 	'PropName'	TEXT,                                   \
 	'PropValue'	TEXT,                                   \
-	'ItemId'	INTEGER NOT NULL,                       \
-	PRIMARY KEY('CPropId'),                             \
-	FOREIGN KEY('ItemId')                               \
-	REFERENCES 'storage_Item'('ItemId')                 \
+	FOREIGN KEY('Serial')                               \
+	REFERENCES 'storage_Item'('Serial')                 \
 	ON UPDATE CASCADE ON DELETE CASCADE                 \
 );                                                      \
-CREATE INDEX IF NOT EXISTS 'storage_ItemIndex'          \
+CREATE INDEX IF NOT EXISTS 'storage_Item_Name'          \
 ON 'storage_Item' (                                     \
-	'Name'	ASC,                                        \
+	'Name'	ASC                                         \
+);                                                      \
+CREATE INDEX IF NOT EXISTS 'storage_Item_Serial'          \
+ON 'storage_Item' (                                     \
+	'Serial'	ASC                                     \
+);                                                      \
+CREATE INDEX IF NOT EXISTS 'storage_Item_Container'      \
+ON 'storage_Item' (                                     \
+	'Container'	ASC                                     \
+);                                                      \
+CREATE INDEX IF NOT EXISTS 'storage_CProp_Serial'          \
+ON 'storage_CProp' (                                     \
 	'Serial'	ASC                                     \
 );                                                      \
 COMMIT;                                                 \

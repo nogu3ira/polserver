@@ -491,7 +491,7 @@ void Storage::read( Clib::ConfigFile& cf )
   gamestate.sqlitedb.Connect();
   gamestate.sqlitedb.BeginTransaction();
 
-  INFO_PRINT << "\nStarting import into the database... ";
+  INFO_PRINT << "\nStarting import into the database: ";
 
   while ( cf.read( elem ) )
   {

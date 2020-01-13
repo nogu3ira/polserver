@@ -56,29 +56,27 @@ public:
   bool RemoveItem( const std::string& name );
   bool RemoveItem( const u32 serial );
   bool AddItem( Items::Item* item, const std::string& areaName, const u32 container_serial = 0 );
-  bool AddCProp( Items::Item* item, const int last_rowid );
-  bool RemoveCProp( const int ItemId );
+  bool AddCProp( Items::Item* item );
+  bool RemoveCProp( const int Serial );
   bool UpdateItem( Items::Item* item, const std::string& areaName );
   bool CreateDatabase();
   bool ExistDB();
 
   int GetIdArea( const std::string& name );
-  int GetItemId( const std::string& name );
-  int Last_Rowid();
 
   void Connect();
   void Close();
   void ListStorageAreas();
   void Finish( sqlite3_stmt*& stmt, int x = 1 );
   void AddStorageArea( const std::string& name );
-  void GetCProp( const int ItemId, std::map<std::string, std::string>& CProps );
+  void GetCProp( const int Serial, std::map<std::string, std::string>& CProps );
   void PrepareCProp( Items::Item* item, std::map<std::string, std::string>& allproperties );
   void PrepareItemInfo( sqlite3_stmt* stmt, struct ItemInfoDB* i );
   bool CanAddItemInfo( const u32 serial, std::vector<ItemInfoDB> ItemsInContainer );
   void query_value( std::string& q, const std::string& v, bool last = false );
   void query_value2( std::string& query, const std::string& column_name, const std::string& new_value, bool last = false );
   void GetItem( const std::string& name, struct ItemInfoDB* i );
-  int GetItems( const u32 container_serial, std::vector<ItemInfoDB>& ItemsInContainer );
+  int GetItems( const u32 container_serial, std::vector<ItemInfoDB>& ItemsInContainer, std::vector<u32>& ItemsInfoSerial );
 
   void insert_root_item( Items::Item* item, const std::string& areaName );
   void insert_item( Items::Item* item, const std::string& areaName, const u32 container_serial );
@@ -92,6 +90,7 @@ public:
   void remove_from_list(std::vector<u32>& vec, u32 serial);
   void find_deleted_storage_items();
   void EscapeSequence( std::string& value );
+  void PrepareQueryGetItems( sqlite3_stmt*& stmt, int params );
 
   Items::Item* read_item( const std::string& name );
   Items::Item* create_item_ref( struct ItemInfoDB* i, std::map<std::string, std::string>& CProps );
