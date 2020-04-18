@@ -346,6 +346,8 @@ set (pol_sources  # sorted !
   spelbook.h
   spells.cpp
   spells.h
+  sqlitedb.cpp
+  sqlitedb.h
   sqlscrobj.cpp
   sqlscrobj.h
   ssopt.cpp
