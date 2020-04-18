@@ -489,6 +489,7 @@ void Storage::read( Clib::ConfigFile& cf )
   clock_t start = clock();
 
   gamestate.sqlitedb.Connect();
+  gamestate.sqlitedb.DropIndexes();
   gamestate.sqlitedb.BeginTransaction();
 
   INFO_PRINT << "\nStarting import into the database: ";
@@ -535,6 +536,7 @@ void Storage::read( Clib::ConfigFile& cf )
   INFO_PRINT << "\nDone!\n";
 
   gamestate.sqlitedb.EndTransaction();
+  gamestate.sqlitedb.CreateIndexes();
 
   clock_t end = clock();
   int ms = static_cast<int>( ( end - start ) * 1000.0 / CLOCKS_PER_SEC );

@@ -91,6 +91,8 @@ public:
   void find_deleted_storage_items();
   void EscapeSequence( std::string& value );
   void PrepareQueryGetItems( sqlite3_stmt*& stmt, int params );
+  void DropIndexes();
+  void CreateIndexes();
 
   Items::Item* read_item( const std::string& name );
   Items::Item* create_item_ref( struct ItemInfoDB* i, std::map<std::string, std::string>& CProps );

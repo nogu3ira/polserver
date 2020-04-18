@@ -1871,7 +1871,7 @@ COMMIT;                                                 \
   ";
 
   char* msgError;
-  rc = sqlite3_exec(gamestate.sqlitedb.db, sqlquery.c_str(), NULL, 0, &msgError); 
+  rc = sqlite3_exec(gamestate.sqlitedb.db, sqlquery.c_str(), NULL, 0, &msgError);
   if (rc != SQLITE_OK)
   { 
     ERROR_PRINT << "Error Insert!\n";
@@ -1957,6 +1957,46 @@ void SQLiteDB::find_deleted_storage_items()
       INFO_PRINT_TRACE( 1 ) << "deleted_sub_cont_items (orphan): " << std::to_string( static_cast<Items::Item*>( obj )->serial_ext ) << ".\n";
     }
   }
+}
+
+void SQLiteDB::DropIndexes()
+{
+  std::string sqlquery = "								\
+BEGIN TRANSACTION;										\
+DROP INDEX IF EXISTS 'storage_Item_Name';          \
+DROP INDEX IF EXISTS 'storage_Item_Serial';          \
+DROP INDEX IF EXISTS 'storage_Item_Container';          \
+DROP INDEX IF EXISTS 'storage_CProp_Serial';          \
+COMMIT;                                                 \
+  ";
+
+  sqlite3_exec(gamestate.sqlitedb.db, sqlquery.c_str(), NULL, NULL, NULL);
+}
+
+void SQLiteDB::CreateIndexes()
+{
+  std::string sqlquery = "								\
+BEGIN TRANSACTION;										\
+CREATE INDEX IF NOT EXISTS 'storage_Item_Name'          \
+ON 'storage_Item' (                                     \
+	'Name'	ASC                                         \
+);                                                      \
+CREATE INDEX IF NOT EXISTS 'storage_Item_Serial'          \
+ON 'storage_Item' (                                     \
+	'Serial'	ASC                                     \
+);                                                      \
+CREATE INDEX IF NOT EXISTS 'storage_Item_Container'      \
+ON 'storage_Item' (                                     \
+	'Container'	ASC                                     \
+);                                                      \
+CREATE INDEX IF NOT EXISTS 'storage_CProp_Serial'          \
+ON 'storage_CProp' (                                     \
+	'Serial'	ASC                                     \
+);                                                      \
+COMMIT;                                                 \
+  ";
+
+  sqlite3_exec(gamestate.sqlitedb.db, sqlquery.c_str(), NULL, NULL, NULL);
 }
 
 }  // namespace Core
