@@ -1961,6 +1961,9 @@ void SQLiteDB::find_deleted_storage_items()
 
 void SQLiteDB::DropIndexes()
 {
+  if ( !Plib::systemstate.config.enable_sqlite )
+    return;
+
   std::string sqlquery = "								\
 BEGIN TRANSACTION;										\
 DROP INDEX IF EXISTS 'storage_Item_Name';          \
@@ -1975,6 +1978,9 @@ COMMIT;                                                 \
 
 void SQLiteDB::CreateIndexes()
 {
+  if ( !Plib::systemstate.config.enable_sqlite )
+    return;
+
   std::string sqlquery = "								\
 BEGIN TRANSACTION;										\
 CREATE INDEX IF NOT EXISTS 'storage_Item_Name'          \
