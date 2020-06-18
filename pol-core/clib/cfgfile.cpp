@@ -21,6 +21,7 @@
 #include "stlutil.h"
 #include "strutil.h"
 #include <format/format.h>
+#include "../plib/systemstate.h"
 
 
 namespace Pol
@@ -844,7 +845,6 @@ bool ConfigFile::read_properties( VectorConfigElem& elem )
   return false;
 }
 
-
 bool ConfigFile::_read( ConfigElem& elem )
 {
   elem.properties.clear();
@@ -1035,6 +1035,40 @@ void ConfigFile::display_and_rethrow_exception()
   }
 
   throw std::runtime_error( "Configuration file error." );
+}
+
+void ConfigFile::PropsToConfigElem( ConfigElem& elem, std::map<std::string, std::string> main,
+                                    std::map<std::string, std::string> unusual,
+                                    std::map<std::string, std::string> cprops )
+{
+  try
+  {
+    elem._source = this;
+    elem.properties.clear();
+    elem.type_ = "Item";
+    elem.rest_ = "";
+
+    for ( const auto& m : main )
+      elem.properties.emplace( m.first, m.second );
+
+    for ( const auto& m : unusual )
+      elem.properties.emplace( m.first, m.second );
+
+    for ( const auto& m : cprops )
+      elem.properties.emplace( "CProp", m.first + " " + m.second );
+
+	// start test
+    INFO_PRINT_TRACE( 1 ) << elem.type_ << "\n";
+    INFO_PRINT_TRACE( 1 ) << elem.rest_ << "\n";
+    for ( const auto& m : elem.properties )
+      INFO_PRINT_TRACE( 1 ) << m.first << " -> " << m.second << "\n";
+	// end test
+
+  }
+  catch ( ... )
+  {
+    display_and_rethrow_exception();  // throws and doesn't return
+  }
 }
 
 bool ConfigFile::read( ConfigElem& elem )

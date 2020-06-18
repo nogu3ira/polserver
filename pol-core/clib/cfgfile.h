@@ -49,6 +49,10 @@ public:
 
   void open( const char* i_filename );
 
+  void PropsToConfigElem( ConfigElem& elem, std::map<std::string, std::string> main,
+                          std::map<std::string, std::string> unusual,
+                          std::map<std::string, std::string> cprops );
+
   bool read( ConfigElem& elem );     // true=got one, false=end of file
   void readraw( ConfigElem& elem );  // reads 0 or more properties
 
