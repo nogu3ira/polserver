@@ -16,6 +16,20 @@ namespace Pol
 {
 namespace Clib
 {
+class PreparePrint
+{
+public:
+  std::map<std::string, std::string> main, cprop;
+  std::map<std::string, bool> internal;
+  std::multimap<std::string, std::string> unusual;
+};
+
+class vecPreparePrint
+{
+public:
+  std::vector<PreparePrint> v;
+};
+
 class StreamWriter
 {
 public:
