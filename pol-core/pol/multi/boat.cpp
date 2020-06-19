@@ -1613,11 +1613,13 @@ void UBoat::readProperties( Clib::ConfigElem& elem )
   Core::start_script( "misc/boat", make_boatref( this ) );
 }
 
-void UBoat::printProperties( Clib::StreamWriter& sw ) const
+void UBoat::printProperties( Clib::PreparePrint& pp ) const
 {
-  base::printProperties( sw );
+  using namespace std;
+  using namespace boost;
+  base::printProperties( pp );
 
-  sw() << "\tMultiID\t" << multiid << pf_endl;
+  pp.unusual.insert( make_pair( "MultiID", lexical_cast<string>( multiid ) ) );
 
   BoatContext bc( *this );
 
@@ -1626,16 +1628,23 @@ void UBoat::printProperties( Clib::StreamWriter& sw ) const
     UObject* obj = travellerRef.get();
     if ( !obj->orphan() && on_ship( bc, obj ) )
     {
-      sw() << "\tTraveller\t0x" << fmt::hex( obj->serial ) << pf_endl;
+      pp.unusual.insert( make_pair( "Traveller", lexical_cast<string>( obj->serial ) ) );
     }
   }
   for ( auto& component : Components )
   {
     if ( component != nullptr && !component->orphan() )
     {
-      sw() << "\tComponent\t0x" << fmt::hex( component->serial ) << pf_endl;
+      pp.unusual.insert( make_pair( "Component", lexical_cast<string>( component->serial ) ) );
     }
   }
+}
+
+void UBoat::printProperties( Clib::StreamWriter& sw ) const
+{
+  Clib::PreparePrint pp;
+  printProperties( pp );
+  ToStreamWriter( sw, pp );
 }
 
 Bscript::BObjectImp* UBoat::scripted_create( const Items::ItemDesc& descriptor, u16 x, u16 y, s8 z,

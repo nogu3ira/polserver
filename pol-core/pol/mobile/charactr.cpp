@@ -546,64 +546,73 @@ int Character::charindex() const
   return -1;
 }
 
-
-void Character::printProperties( Clib::StreamWriter& sw ) const
+void Character::printProperties( Clib::PreparePrint& pp ) const
 {
-  using namespace fmt;
+  using namespace std;
+  using namespace boost;
 
   if ( acct != nullptr )
   {
-    sw() << "\tAccount\t" << acct->name() << pf_endl;
-    sw() << "\tCharIdx\t" << charindex() << pf_endl;
+    pp.unusual.insert( make_pair( "Account", lexical_cast<string>( acct->name() ) ) );
+    pp.unusual.insert( make_pair( "CharIdx", lexical_cast<string>( charindex() ) ) );
   }
 
-  base::printProperties( sw );
+  base::printProperties( pp );
 
   if ( cmdlevel_ )
   {
-    sw() << "\tCmdLevel\t" << Core::gamestate.cmdlevels[cmdlevel_].name << pf_endl;
+    pp.unusual.insert( make_pair(
+        "CmdLevel", lexical_cast<string>( Core::gamestate.cmdlevels[cmdlevel_].name ) ) );
   }
   if ( concealed_ )
   {
-    sw() << "\tConcealed\t" << int( concealed_ ) << pf_endl;
+    pp.unusual.insert( make_pair( "Concealed", lexical_cast<string>( int( concealed_ ) ) ) );
   }
-  sw() << "\tTrueColor\t0x" << hex( truecolor ) << pf_endl;
-  sw() << "\tTrueObjtype\t0x" << hex( trueobjtype ) << pf_endl;
+  pp.unusual.insert( make_pair( "TrueColor", lexical_cast<string>( truecolor ) ) );
+  pp.unusual.insert( make_pair( "TrueObjtype", lexical_cast<string>( trueobjtype ) ) );
 
   if ( registered_house )
-    sw() << "\tRegisteredHouse\t0x" << hex( registered_house ) << pf_endl;
+    pp.unusual.insert( make_pair( "RegisteredHouse", lexical_cast<string>( registered_house ) ) );
 
-  sw() << "\tGender\t" << static_cast<int>( gender ) << pf_endl;
-  sw() << "\tRace\t" << static_cast<int>( race ) << pf_endl;
+  pp.unusual.insert( make_pair( "Gender", lexical_cast<string>( static_cast<int>( gender ) ) ) );
+  pp.unusual.insert( make_pair( "Race", lexical_cast<string>( static_cast<int>( race ) ) ) );
 
   if ( dead() )
-    sw() << "\tDead\t" << static_cast<int>( dead() ) << pf_endl;
+    pp.unusual.insert( make_pair( "Dead", lexical_cast<string>( static_cast<int>( dead() ) ) ) );
 
   if ( mountedsteps_ )
-    sw() << "\tMountedSteps\t" << static_cast<unsigned int>( mountedsteps_ ) << pf_endl;
+    pp.unusual.insert( make_pair(
+        "MountedSteps", lexical_cast<string>( static_cast<unsigned int>( mountedsteps_ ) ) ) );
 
   if ( hidden() )
-    sw() << "\tHidden\t" << static_cast<int>( hidden() ) << pf_endl;
+    pp.unusual.insert(
+        make_pair( "Hidden", lexical_cast<string>( static_cast<int>( hidden() ) ) ) );
 
   if ( frozen() )
-    sw() << "\tFrozen\t" << static_cast<int>( frozen() ) << pf_endl;
+    pp.unusual.insert(
+        make_pair( "Frozen", lexical_cast<string>( static_cast<int>( frozen() ) ) ) );
 
   if ( has_movement_cost() )
   {
     auto movecost_value = movement_cost();
     if ( movecost_value.walk != Core::MovementCostMod::DEFAULT.walk )
-      sw() << "\tMovementWalkMod\t" << static_cast<double>( movecost_value.walk ) << pf_endl;
+      pp.unusual.insert( make_pair(
+          "MovementWalkMod", lexical_cast<string>( static_cast<double>( movecost_value.walk ) ) ) );
     if ( movecost_value.run != Core::MovementCostMod::DEFAULT.run )
-      sw() << "\tMovementRunMod\t" << static_cast<double>( movecost_value.run ) << pf_endl;
+      pp.unusual.insert( make_pair(
+          "MovementRunMod", lexical_cast<string>( static_cast<double>( movecost_value.run ) ) ) );
     if ( movecost_value.walk_mounted != Core::MovementCostMod::DEFAULT.walk_mounted )
-      sw() << "\tMovementWalkMountedMod\t" << static_cast<double>( movecost_value.walk_mounted )
-           << pf_endl;
+      pp.unusual.insert(
+          make_pair( "MovementWalkMountedMod",
+                     lexical_cast<string>( static_cast<double>( movecost_value.walk_mounted ) ) ) );
     if ( movecost_value.run_mounted != Core::MovementCostMod::DEFAULT.run_mounted )
-      sw() << "\tMovementRunMountedMod\t" << static_cast<double>( movecost_value.run_mounted )
-           << pf_endl;
+      pp.unusual.insert(
+          make_pair( "MovementRunMountedMod",
+                     lexical_cast<string>( static_cast<double>( movecost_value.run_mounted ) ) ) );
   }
   if ( has_carrying_capacity_mod() )
-    sw() << "\tCarryingCapacityMod\t" << static_cast<int>( carrying_capacity_mod() ) << pf_endl;
+    pp.unusual.insert( make_pair( "CarryingCapacityMod", lexical_cast<string>( static_cast<int>(
+                                                             carrying_capacity_mod() ) ) ) );
 
 
   // output Attributes
@@ -618,24 +627,34 @@ void Character::printProperties( Clib::StreamWriter& sw ) const
     {
       unsigned ones = av.base() / 10;
       unsigned tenths = av.base() % 10;
-      sw() << "\t" << pAttr->name << "\t" << ones;
-      if ( tenths )
-        sw() << "." << tenths;
+      string propvalue = lexical_cast<string>( ones );
+	  if (tenths)
+	  {
+        propvalue += ".";
+        propvalue += lexical_cast<string>( tenths );
+	  }
 
       if ( cap != pAttr->default_cap )
       {
         unsigned cap_ones = cap / 10;
         unsigned cap_tenths = cap % 10;
 
-        sw() << ":" << cap_ones;
-        if ( tenths )
-          sw() << "." << cap_tenths;
+		propvalue += ":";
+        propvalue += lexical_cast<string>( cap_ones );
+		if (tenths)
+		{
+          propvalue += ".";
+          propvalue += lexical_cast<string>( cap_tenths );
+		}
       }
 
-      if ( lock )
-        sw() << ";" << lock;
+	  if (lock)
+	  {
+        propvalue += ";";
+        propvalue += lexical_cast<string>( lock );
+	  }
 
-      sw() << pf_endl;
+      pp.unusual.insert( make_pair( pAttr->name, propvalue ) );
     }
   }
 
@@ -645,7 +664,7 @@ void Character::printProperties( Clib::StreamWriter& sw ) const
     const VitalValue& vv = vital( pVital->vitalid );
     if ( vv.current_ones() )
     {
-      sw() << "\t" << pVital->name << "\t" << vv.current_ones() << pf_endl;
+      pp.unusual.insert( make_pair( pVital->name, lexical_cast<string>( vv.current_ones() ) ) );
     }
   }
 
@@ -653,63 +672,84 @@ void Character::printProperties( Clib::StreamWriter& sw ) const
   {
     auto cap_value = skillstatcap();
     if ( cap_value.statcap != Core::SkillStatCap::DEFAULT.statcap )
-      sw() << "\tStatcap\t" << static_cast<int>( cap_value.statcap ) << pf_endl;
+      pp.unusual.insert(
+          make_pair( "Statcap", lexical_cast<string>( static_cast<int>( cap_value.statcap ) ) ) );
     if ( cap_value.skillcap != Core::SkillStatCap::DEFAULT.skillcap )
-      sw() << "\tSkillcap\t" << static_cast<int>( cap_value.skillcap ) << pf_endl;
+      pp.unusual.insert(
+          make_pair( "Skillcap", lexical_cast<string>( static_cast<int>( cap_value.skillcap ) ) ) );
   }
 
   if ( has_followers() )
   {
     auto followers_value = followers();
     if ( followers_value.followers_max != Core::ExtStatBarFollowers::DEFAULT.followers_max )
-      sw() << "\tFollowersMax\t" << static_cast<int>( followers_value.followers_max ) << pf_endl;
+      pp.unusual.insert( make_pair( "FollowersMax", lexical_cast<string>( static_cast<int>(
+                                                        followers_value.followers_max ) ) ) );
     if ( followers_value.followers != Core::ExtStatBarFollowers::DEFAULT.followers )
-      sw() << "\tFollowers\t" << static_cast<int>( followers_value.followers ) << pf_endl;
+      pp.unusual.insert( make_pair(
+          "Followers", lexical_cast<string>( static_cast<int>( followers_value.followers ) ) ) );
   }
   if ( has_tithing() )
-    sw() << "\tTithing\t" << static_cast<int>( tithing() ) << pf_endl;
+    pp.unusual.insert(
+        make_pair( "Tithing", lexical_cast<string>( static_cast<int>( tithing() ) ) ) );
 
 
   if ( movemode != Plib::MOVEMODE_LAND )
-    sw() << "\tMoveMode\t" << encode_movemode( movemode ) << pf_endl;
+    pp.unusual.insert(
+        make_pair( "MoveMode", lexical_cast<string>( encode_movemode( movemode ) ) ) );
 
   if ( !privs.empty() )
   {
-    sw() << "\tPrivs\t" << privs.extract() << pf_endl;
+    pp.unusual.insert( make_pair( "Privs", lexical_cast<string>( privs.extract() ) ) );
   }
   if ( !settings.empty() )
   {
-    sw() << "\tSettings\t" << settings.extract() << pf_endl;
+    pp.unusual.insert( make_pair( "Settings", lexical_cast<string>( settings.extract() ) ) );
   }
 
-  sw() << "\tCreatedAt\t" << created_at << pf_endl;
+  pp.unusual.insert( make_pair( "CreatedAt", lexical_cast<string>( created_at ) ) );
 
   if ( has_squelched_until() )
-    sw() << "\tSquelchedUntil\t" << squelched_until() << pf_endl;
+    pp.unusual.insert( make_pair( "SquelchedUntil", lexical_cast<string>( squelched_until() ) ) );
   if ( has_deafened_until() )
-    sw() << "\tDeafenedUntil\t" << deafened_until() << pf_endl;
+    pp.unusual.insert( make_pair( "DeafenedUntil", lexical_cast<string>( deafened_until() ) ) );
 
   if ( has_title_prefix() )
-    sw() << "\tTitlePrefix\t" << Clib::getencodedquotedstring( title_prefix() ) << pf_endl;
+    pp.unusual.insert( make_pair(
+        "TitlePrefix", lexical_cast<string>( Clib::getencodedquotedstring( title_prefix() ) ) ) );
   if ( has_title_suffix() )
-    sw() << "\tTitleSuffix\t" << Clib::getencodedquotedstring( title_suffix() ) << pf_endl;
+    pp.unusual.insert( make_pair(
+        "TitleSuffix", lexical_cast<string>( Clib::getencodedquotedstring( title_suffix() ) ) ) );
   if ( has_title_guild() )
-    sw() << "\tTitleGuild\t" << Clib::getencodedquotedstring( title_guild() ) << pf_endl;
+    pp.unusual.insert( make_pair(
+        "TitleGuild", lexical_cast<string>( Clib::getencodedquotedstring( title_guild() ) ) ) );
   if ( has_title_race() )
-    sw() << "\tTitleRace\t" << Clib::getencodedquotedstring( title_race() ) << pf_endl;
+    pp.unusual.insert( make_pair(
+        "TitleRace", lexical_cast<string>( Clib::getencodedquotedstring( title_race() ) ) ) );
 
   if ( is_murderer() )
-    sw() << "\tMurderer\t" << is_murderer() << pf_endl;
+    pp.unusual.insert( make_pair( "Murderer", lexical_cast<string>( is_murderer() ) ) );
   if ( party_can_loot() )
-    sw() << "\tPartyCanLoot\t" << party_can_loot() << pf_endl;
+    pp.unusual.insert( make_pair( "PartyCanLoot", lexical_cast<string>( party_can_loot() ) ) );
   for ( const auto& rt : reportable_ )
   {
-    sw() << "\tReportable\t" << Clib::hexint( rt.serial ) << " " << rt.polclock << pf_endl;
+    string propvalue = Clib::hexint( rt.serial );
+    propvalue += " ";
+    propvalue += rt.polclock;
+    // 'unusual' must be multimap because of that propname
+    pp.unusual.insert( make_pair( "Reportable", lexical_cast<string>( propvalue ) ) );
   }
 
   Core::UCorpse* corpse_obj = static_cast<Core::UCorpse*>( Core::system_find_item( last_corpse ) );
   if ( corpse_obj != nullptr && !corpse_obj->orphan() )
-    sw() << "\tLastCorpse\t" << last_corpse << pf_endl;
+    pp.unusual.insert( make_pair( "LastCorpse", lexical_cast<string>( last_corpse ) ) );
+}
+
+void Character::printProperties( Clib::StreamWriter& sw ) const
+{
+  Clib::PreparePrint pp;
+  printProperties( pp );
+  ToStreamWriter( sw, pp );
 }
 
 void Character::printDebugProperties( Clib::StreamWriter& sw ) const
@@ -725,6 +765,11 @@ const char* Character::classname() const
 void Character::printSelfOn( Clib::StreamWriter& sw ) const
 {
   base::printOn( sw );
+}
+
+void Character::printOn( Clib::vecPreparePrint& vpp ) const
+{
+  base::printOn( vpp );
 }
 
 void Character::printOn( Clib::StreamWriter& sw ) const

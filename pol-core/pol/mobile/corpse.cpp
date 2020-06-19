@@ -124,12 +124,22 @@ void UCorpse::RemoveItemFromLayer( Item* item )
   item->layer = 0;
 }
 
+void UCorpse::printProperties( Clib::PreparePrint& pp ) const
+{
+  using namespace std;
+  using namespace boost;
+  base::printProperties( pp );
+  pp.unusual.insert( make_pair( "CorpseType", lexical_cast<string>( corpsetype ) ) );
+  pp.unusual.insert( make_pair( "OwnerSerial", lexical_cast<string>( ownerserial ) ) );
+  pp.unusual.insert(
+      make_pair( "TakeContentsToGrave", lexical_cast<string>( take_contents_to_grave() ) ) );
+}
+
 void UCorpse::printProperties( Clib::StreamWriter& sw ) const
 {
-  base::printProperties( sw );
-  sw() << "\tCorpseType\t" << corpsetype << pf_endl;
-  sw() << "\tOwnerSerial\t" << ownerserial << pf_endl;
-  sw() << "\tTakeContentsToGrave\t" << take_contents_to_grave() << pf_endl;
+  Clib::PreparePrint pp;
+  printProperties( pp );
+  ToStreamWriter( sw, pp );
 }
 
 void UCorpse::readProperties( Clib::ConfigElem& elem )

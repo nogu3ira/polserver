@@ -13,6 +13,8 @@
 
 #include <stddef.h>
 #include <string>
+#include <algorithm> // for std::find
+#include <iterator> // for std::begin, std::end
 
 #include "../../clib/boostutils.h"
 #include "../../clib/rawtypes.h"
@@ -249,6 +251,8 @@ public:
   Bscript::BObject call_custom_method( const char* methodname );
   virtual bool get_method_hook( const char* methodname, Bscript::Executor* ex,
                                 Core::ExportScript** hook, unsigned int* PC ) const override;
+
+  virtual void printProperties( Clib::PreparePrint& pp ) const override;
 
 protected:  // only derived classes need the constructor
   virtual void printProperties( Clib::StreamWriter& sw ) const override;

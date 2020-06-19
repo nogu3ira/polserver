@@ -204,6 +204,7 @@ protected:
   explicit UBoat( const Items::ItemDesc& descriptor );
   virtual void fixInvalidGraphic() override;
   virtual void readProperties( Clib::ConfigElem& elem ) override;
+  virtual void printProperties( Clib::PreparePrint& pp ) const override;
   virtual void printProperties( Clib::StreamWriter& sw ) const override;
   friend class UMulti;
 

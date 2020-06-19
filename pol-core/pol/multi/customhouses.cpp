@@ -57,6 +57,7 @@
 #include "../uworld.h"
 #include "house.h"
 #include "multidef.h"
+#include <boost/algorithm/string/replace.hpp>
 
 #ifdef USE_SYSTEM_ZLIB
 #include <zlib.h>
@@ -438,8 +439,10 @@ void CustomHouseDesign::readProperties( Clib::ConfigElem& elem, const std::strin
   }
 }
 
-void CustomHouseDesign::printProperties( Clib::StreamWriter& sw, const std::string& prefix ) const
+void CustomHouseDesign::printProperties( Clib::PreparePrint& pp, const std::string& prefix ) const
 {
+  using namespace std;
+  using namespace boost;
   if ( !IsEmpty() )
   {
     for ( int i = 0; i < CUSTOM_HOUSE_NUM_PLANES; i++ )
@@ -454,13 +457,61 @@ void CustomHouseDesign::printProperties( Clib::StreamWriter& sw, const std::stri
           for ( HouseFloorZColumn::const_iterator zitr = yitr->begin(), zitrend = yitr->end();
                 zitr != zitrend; ++zitr )
           {
-            sw() << "\t" << prefix << "\t " << zitr->graphic << " " << zitr->xoffset << " "
-                 << zitr->yoffset << " " << (u16)zitr->z << '\n';
+            string propvalue = lexical_cast<string>( zitr->graphic );
+            propvalue += " ";
+            propvalue += lexical_cast<string>( zitr->xoffset );
+            propvalue += " ";
+            propvalue += lexical_cast<string>( zitr->yoffset );
+            propvalue += " ";
+            propvalue += lexical_cast<string>( (u16)zitr->z );
+            pp.unusual.insert( make_pair( prefix, propvalue ) );
           }
         }
       }
     }
   }
+}
+
+void CustomHouseDesign::printProperties( Clib::StreamWriter& sw, const std::string& prefix ) const
+{
+  Clib::PreparePrint pp;
+  printProperties( pp, prefix );
+  ToStreamWriter( sw, pp );
+}
+
+void CustomHouseDesign::ToStreamWriter( Clib::StreamWriter& sw, Clib::PreparePrint& pp ) const
+{
+  using namespace fmt;
+  using namespace std;
+  using namespace boost;
+  string hexProps[] = {"Serial",    "ObjType",     "Graphic",         "Color",     "Container",
+                       "TrueColor", "TrueObjtype", "RegisteredHouse", "Traveller", "Component"};
+
+  for ( const auto& m : pp.main )
+  {
+    if ( find( begin( hexProps ), end( hexProps ), m.first ) != end( hexProps ) )
+      sw() << "\t" << m.first << "\t0x" << hex( lexical_cast<u32>( m.second ) ) << pf_endl;
+    else
+      sw() << "\t" << m.first << "\t" << UnEscapeSequence( m.second ) << pf_endl;
+  }
+
+  for ( const auto& m : pp.unusual )
+  {
+    if ( find( begin( hexProps ), end( hexProps ), m.first ) != end( hexProps ) )
+      sw() << "\t" << m.first << "\t0x" << hex( lexical_cast<u32>( m.second ) ) << pf_endl;
+    else
+      sw() << "\t" << m.first << "\t" << UnEscapeSequence( m.second ) << pf_endl;
+  }
+
+  for ( const auto& m : pp.cprop )
+    sw() << "\tCProp\t" << m.first << " " << UnEscapeSequence( m.second ) << pf_endl;
+}
+
+std::string CustomHouseDesign::UnEscapeSequence( std::string value ) const
+{
+  boost::replace_all( value, "\"\"", "\"" );
+  boost::replace_all( value, "\'\'", "\'" );
+  return value;
 }
 
 // for testing, prints each floor's x,y,z rows

@@ -482,19 +482,26 @@ Item* UWeapon::clone() const
   return wpn;
 }
 
-void UWeapon::printProperties( Clib::StreamWriter& sw ) const
+void UWeapon::printProperties( Clib::PreparePrint& pp ) const
 {
-  base::printProperties( sw );
+  base::printProperties( pp );
 
   short speed_mod_ = speed_mod();
   short dmg_mod = damage_mod();
 
   if ( dmg_mod )
-    sw() << "\tdmg_mod\t" << dmg_mod << pf_endl;
+    pp.unusual.insert( std::make_pair( "dmg_mod", boost::lexical_cast<std::string>( dmg_mod ) ) );
   if ( speed_mod_ )
-    sw() << "tspeed_mod\t" << speed_mod_ << pf_endl;
+    pp.unusual.insert( std::make_pair( "speed_mod", boost::lexical_cast<std::string>( speed_mod_ ) ) );
   if ( !( hit_script_ == WEAPON_TMPL->hit_script ) )
-    sw() << "\tHitScript\t" << hit_script_.relativename( tmpl->pkg ) << pf_endl;
+    pp.unusual.insert( std::make_pair( "HitScript", hit_script_.relativename( tmpl->pkg ) ) );
+}
+
+void UWeapon::printProperties( Clib::StreamWriter& sw ) const
+{
+  Clib::PreparePrint pp;
+  printProperties( pp );
+  ToStreamWriter( sw, pp );
 }
 
 void UWeapon::readProperties( Clib::ConfigElem& elem )

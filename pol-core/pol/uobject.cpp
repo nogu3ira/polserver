@@ -36,6 +36,7 @@
 #include "syshookscript.h"
 #include "tooltips.h"
 #include "uobjcnt.h"
+#include <boost/algorithm/string/replace.hpp>
 
 namespace Pol
 {
@@ -248,111 +249,166 @@ std::string UObject::get_realm() const
   return realm->name();
 }
 
-void UObject::printProperties( Clib::StreamWriter& sw ) const
+std::string UObject::EscapeSequence( std::string value ) const
 {
-  using namespace fmt;
+  boost::replace_all( value, "\"", "\"\"" );
+  boost::replace_all( value, "\'", "\'\'" );
+  return value;
+}
+
+std::string UObject::UnEscapeSequence( std::string value ) const
+{
+  boost::replace_all( value, "\"\"", "\"" );
+  boost::replace_all( value, "\'\'", "\'" );
+  return value;
+}
+
+void UObject::printProperties( Clib::PreparePrint& pp ) const
+{
+  using namespace std;
+  using namespace boost;
+
+  pp.internal.insert( make_pair( "DIRTY", dirty() ) );
+  pp.internal.insert( make_pair( "SAVE_ON_EXIT", saveonexit() ) );
+  pp.internal.insert( make_pair( "ORPHAN", orphan() ) );
+  pp.internal.insert( make_pair( "SERIAL_EXT", serial_ext ) );
 
   if ( !name_.get().empty() )
-    sw() << "\tName\t" << name_.get() << pf_endl;
+    pp.main.insert( make_pair( "Name", EscapeSequence( name_.get() ) ) );
 
-  sw() << "\tSerial\t0x" << hex( serial ) << pf_endl;
-  sw() << "\tObjType\t0x" << hex( objtype_ ) << pf_endl;
-  sw() << "\tGraphic\t0x" << hex( graphic ) << pf_endl;
+  pp.main.insert( make_pair( "Serial", lexical_cast<string>(serial) ) );
+  pp.main.insert( make_pair( "ObjType", lexical_cast<string>( objtype_ ) ) );
+  pp.main.insert( make_pair( "Graphic", lexical_cast<string>( graphic ) ) );
 
   if ( color != 0 )
-    sw() << "\tColor\t0x" << hex( color ) << pf_endl;
+    pp.unusual.insert( make_pair( "Color", lexical_cast<string>( color ) ) );
 
-  sw() << "\tX\t" << x << pf_endl;
-  sw() << "\tY\t" << y << pf_endl;
-  sw() << "\tZ\t" << (int)z << pf_endl;
+  pp.main.insert( make_pair( "X", lexical_cast<string>( x ) ) );
+  pp.main.insert( make_pair( "Y", lexical_cast<string>( y ) ) );
+  pp.main.insert( make_pair( "Z", lexical_cast<string>( (int)z ) ) );
 
   if ( facing )
-    sw() << "\tFacing\t" << static_cast<int>( facing ) << pf_endl;
+    pp.unusual.insert( make_pair( "Facing", lexical_cast<string>( static_cast<int>( facing ) ) ) );
 
-  sw() << "\tRevision\t" << rev() << pf_endl;
+  pp.main.insert( make_pair( "Revision", lexical_cast<string>( rev() ) ) );
   if ( realm == nullptr )
-    sw() << "\tRealm\tbritannia" << pf_endl;
-  else
-    sw() << "\tRealm\t" << realm->name() << pf_endl;
+    pp.main.insert( make_pair( "Realm", "britannia" ) );
+  else 
+	pp.main.insert( make_pair( "Realm", EscapeSequence( realm->name() ) ) );
 
   s16 value = fire_resist().mod;
   if ( value != 0 )
-    sw() << "\tFireResistMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "FireResistMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = cold_resist().mod;
   if ( value != 0 )
-    sw() << "\tColdResistMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "ColdResistMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = energy_resist().mod;
   if ( value != 0 )
-    sw() << "\tEnergyResistMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "EnergyResistMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = poison_resist().mod;
   if ( value != 0 )
-    sw() << "\tPoisonResistMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "PoisonResistMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = physical_resist().mod;
   if ( value != 0 )
-    sw() << "\tPhysicalResistMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "PhysicalResistMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
 
   value = fire_damage().mod;
   if ( value != 0 )
-    sw() << "\tFireDamageMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "FireDamageMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = cold_damage().mod;
   if ( value != 0 )
-    sw() << "\tColdDamageMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "ColdDamageMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = energy_damage().mod;
   if ( value != 0 )
-    sw() << "\tEnergyDamageMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "EnergyDamageMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = poison_damage().mod;
   if ( value != 0 )
-    sw() << "\tPoisonDamageMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "PoisonDamageMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = physical_damage().mod;
   if ( value != 0 )
-    sw() << "\tPhysicalDamageMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "PhysicalDamageMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   // new mod stuff
   value = lower_reagent_cost().mod;
   if ( value )
-    sw() << "\tLowerReagentCostMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "LowerReagentCostMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = defence_increase().mod;
   if ( value )
-    sw() << "\tDefenceIncreaseMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "DefenceIncreaseMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = defence_increase_cap().mod;
   if ( value )
-    sw() << "\tDefenceIncreaseCapMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "DefenceIncreaseCapMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = lower_mana_cost().mod;
   if ( value )
-    sw() << "\tLowerManaCostMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "LowerManaCostMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = hit_chance().mod;
   if ( value )
-    sw() << "\tHitChanceMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "HitChanceMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = fire_resist_cap().mod;
   if ( value )
-    sw() << "\tFireResistCapMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "FireResistCapMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = cold_resist_cap().mod;
   if ( value )
-    sw() << "\tColdResistCapMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "ColdResistCapMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = energy_resist_cap().mod;
   if ( value )
-    sw() << "\tEnergyResistCapMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "EnergyResistCapMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = physical_resist_cap().mod;
   if ( value )
-    sw() << "\tPhysicalResistCapMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "PhysicalResistCapMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = poison_resist_cap().mod;
   if ( value )
-    sw() << "\tPoisonResistCapMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "PoisonResistCapMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = spell_damage_increase().mod;
   if ( value )
-    sw() << "\tSpellDamageIncreaseMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "SpellDamageIncreaseMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = faster_casting().mod;
   if ( value )
-    sw() << "\tFasterCastingMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "FasterCastingMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = faster_cast_recovery().mod;
   if ( value )
-    sw() << "\tFasterCastRecoveryMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "FasterCastRecoveryMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   value = luck().mod;
   if ( value )
-    sw() << "\tLuckMod\t" << static_cast<int>( value ) << pf_endl;
+    pp.unusual.insert( make_pair( "LuckMod", lexical_cast<string>( static_cast<int>( value ) ) ) );
   // end new mod stuff
 
 
-  proplist_.printProperties( sw );
+  proplist_.printProperties( pp.cprop );
+}
+
+void UObject::printProperties( Clib::StreamWriter& sw ) const
+{
+  Clib::PreparePrint pp;
+  printProperties( pp );
+  ToStreamWriter( sw, pp );
+}
+
+void UObject::ToStreamWriter( Clib::StreamWriter& sw, Clib::PreparePrint& pp ) const
+{
+  using namespace fmt;
+  using namespace std;
+  using namespace boost;
+  string hexProps[] = {"Serial",    "ObjType",   "Graphic",     "Color",     "Container",
+                       "TrueColor", "TrueObjtype", "RegisteredHouse", "Traveller", "Component"};
+
+  for ( const auto& m : pp.main )
+  {
+    if ( find( begin( hexProps ), end( hexProps ), m.first ) != end( hexProps ) )
+      sw() << "\t" << m.first << "\t0x" << hex( lexical_cast<u32>( m.second ) ) << pf_endl;
+    else
+      sw() << "\t" << m.first << "\t" << UnEscapeSequence( m.second ) << pf_endl;
+  }
+
+  for ( const auto& m : pp.unusual )
+  {
+    if ( find( begin( hexProps ), end( hexProps ), m.first ) != end( hexProps ) )
+      sw() << "\t" << m.first << "\t0x" << hex( lexical_cast<u32>( m.second ) ) << pf_endl;
+    else
+      sw() << "\t" << m.first << "\t" << UnEscapeSequence( m.second ) << pf_endl;
+  }
+
+  for ( const auto& m : pp.cprop )
+    sw() << "\tCProp\t" << m.first << " " << UnEscapeSequence( m.second ) << pf_endl;
 }
 
 void UObject::printDebugProperties( Clib::StreamWriter& sw ) const
@@ -486,6 +542,11 @@ void UObject::printSelfOn( Clib::StreamWriter& sw ) const
   printOn( sw );
 }
 
+void UObject::printOn( Clib::vecPreparePrint& vpp ) const
+{
+  printProperties( vpp.v.back() );
+}
+
 void UObject::printOn( Clib::StreamWriter& sw ) const
 {
   sw() << classname() << pf_endl;
@@ -505,6 +566,15 @@ void UObject::printOnDebug( Clib::StreamWriter& sw ) const
   sw() << "}" << pf_endl;
   sw() << pf_endl;
   // sw.flush();
+}
+
+Clib::vecPreparePrint& operator<<( Clib::vecPreparePrint& vpp, const UObject& obj )
+{
+  // for each new printOn UObject, add a new PreparePrint into vector
+  Clib::PreparePrint pp;
+  vpp.v.push_back( pp );
+  obj.printOn( vpp );
+  return vpp;
 }
 
 Clib::StreamWriter& operator<<( Clib::StreamWriter& writer, const UObject& obj )

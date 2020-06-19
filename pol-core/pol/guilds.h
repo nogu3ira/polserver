@@ -1,6 +1,7 @@
 #ifndef GUILDS_H
 #define GUILDS_H
 
+#include <boost/lexical_cast.hpp>
 #include "../clib/refptr.h"
 #include "proplist.h"
 
@@ -26,6 +27,7 @@ class SerialSet : public std::set<unsigned int>
 public:
   SerialSet( Clib::ConfigElem& elem, const char* tag );
   SerialSet() {}
+  void writeOn( Clib::vecPreparePrint& vpp, const char* tag ) const;
   void writeOn( Clib::StreamWriter& sw, const char* tag ) const;
 };
 
@@ -49,6 +51,7 @@ public:
   void update_online_members();
   static void update_online_members_remove( Mobile::Character* chr );
 
+  void printOn( Clib::vecPreparePrint& vpp ) const;
   void printOn( Clib::StreamWriter& sw ) const;
   void addMember( unsigned int serial );
 

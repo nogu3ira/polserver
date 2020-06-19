@@ -253,6 +253,13 @@ bool NPC::npc_path_blocked( Plib::UFACING fdir ) const
   return false;
 }
 
+void NPC::printOn( Clib::vecPreparePrint& vpp ) const
+{
+  vpp.v.back().main.insert(
+      std::make_pair( "NPC", boost::lexical_cast<std::string>( template_name.get() ) ) );
+  printProperties( vpp.v.back() );
+}
+
 void NPC::printOn( Clib::StreamWriter& sw ) const
 {
   sw() << classname() << " " << template_name.get() << pf_endl;
@@ -268,86 +275,109 @@ void NPC::printSelfOn( Clib::StreamWriter& sw ) const
   printOn( sw );
 }
 
-void NPC::printProperties( Clib::StreamWriter& sw ) const
+void NPC::printProperties( Clib::PreparePrint& pp ) const
 {
-  using namespace fmt;
+  using namespace std;
+  using namespace boost;
 
-  base::printProperties( sw );
+  base::printProperties( pp );
 
   if ( registered_house )
-    sw() << "\tRegisteredHouse\t0x" << hex( registered_house ) << pf_endl;
+    pp.unusual.insert( make_pair( "RegisteredHouse", lexical_cast<string>( registered_house ) ) );
 
   if ( npc_ar_ )
-    sw() << "\tAR\t" << npc_ar_ << pf_endl;
+    pp.unusual.insert( make_pair( "AR", lexical_cast<string>( npc_ar_ ) ) );
 
   if ( !script.get().empty() )
-    sw() << "\tscript\t" << script.get() << pf_endl;
+    pp.unusual.insert( make_pair( "script", lexical_cast<string>( script.get() ) ) );
 
   if ( master_.get() != nullptr )
-    sw() << "\tmaster\t" << master_->serial << pf_endl;
+    pp.unusual.insert( make_pair( "master", lexical_cast<string>( master_->serial ) ) );
 
   if ( has_speech_color() )
-    sw() << "\tSpeechColor\t" << speech_color() << pf_endl;
+    pp.unusual.insert( make_pair( "SpeechColor", lexical_cast<string>( speech_color() ) ) );
 
   if ( has_speech_font() )
-    sw() << "\tSpeechFont\t" << speech_font() << pf_endl;
+    pp.unusual.insert( make_pair( "SpeechFont", lexical_cast<string>( speech_font() ) ) );
 
   if ( run_speed != dexterity() )
-    sw() << "\tRunSpeed\t" << run_speed << pf_endl;
+    pp.unusual.insert( make_pair( "RunSpeed", lexical_cast<string>( run_speed ) ) );
 
   if ( use_adjustments() != true )
-    sw() << "\tUseAdjustments\t" << use_adjustments() << pf_endl;
+    pp.unusual.insert( make_pair( "UseAdjustments", lexical_cast<string>( use_adjustments() ) ) );
 
 
   if ( has_orig_fire_resist() )
-    sw() << "\tFireResist\t" << orig_fire_resist() << pf_endl;
+    pp.unusual.insert( make_pair( "FireResist", lexical_cast<string>( orig_fire_resist() ) ) );
   if ( has_orig_cold_resist() )
-    sw() << "\tColdResist\t" << orig_cold_resist() << pf_endl;
+    pp.unusual.insert( make_pair( "ColdResist", lexical_cast<string>( orig_cold_resist() ) ) );
   if ( has_orig_energy_resist() )
-    sw() << "\tEnergyResist\t" << orig_energy_resist() << pf_endl;
+    pp.unusual.insert( make_pair( "EnergyResist", lexical_cast<string>( orig_energy_resist() ) ) );
   if ( has_orig_poison_resist() )
-    sw() << "\tPoisonResist\t" << orig_poison_resist() << pf_endl;
+    pp.unusual.insert( make_pair( "PoisonResist", lexical_cast<string>( orig_poison_resist() ) ) );
   if ( has_orig_physical_resist() )
-    sw() << "\tPhysicalResist\t" << orig_physical_resist() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "PhysicalResist", lexical_cast<string>( orig_physical_resist() ) ) );
 
   if ( has_orig_fire_damage() )
-    sw() << "\tFireDamage\t" << orig_fire_damage() << pf_endl;
+    pp.unusual.insert( make_pair( "FireDamage", lexical_cast<string>( orig_fire_damage() ) ) );
   if ( has_orig_cold_damage() )
-    sw() << "\tColdDamage\t" << orig_cold_damage() << pf_endl;
+    pp.unusual.insert( make_pair( "ColdDamage", lexical_cast<string>( orig_cold_damage() ) ) );
   if ( has_orig_energy_damage() )
-    sw() << "\tEnergyDamage\t" << orig_energy_damage() << pf_endl;
+    pp.unusual.insert( make_pair( "EnergyDamage", lexical_cast<string>( orig_energy_damage() ) ) );
   if ( has_orig_poison_damage() )
-    sw() << "\tPoisonDamage\t" << orig_poison_damage() << pf_endl;
+    pp.unusual.insert( make_pair( "PoisonDamage", lexical_cast<string>( orig_poison_damage() ) ) );
   if ( has_orig_physical_damage() )
-    sw() << "\tPhysicalDamage\t" << orig_physical_damage() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "PhysicalDamage", lexical_cast<string>( orig_physical_damage() ) ) );
   if ( has_orig_lower_reagent_cost() )
-    sw() << "\tLowerReagentCost\t" << orig_lower_reagent_cost() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "LowerReagentCost", lexical_cast<string>( orig_lower_reagent_cost() ) ) );
   if ( has_orig_spell_damage_increase() )
-    sw() << "\tSpellDamageIncrease\t" << orig_spell_damage_increase() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "SpellDamageIncrease", lexical_cast<string>( orig_spell_damage_increase() ) ) );
   if ( has_orig_faster_casting() )
-    sw() << "\tFasterCasting\t" << orig_faster_casting() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "FasterCasting", lexical_cast<string>( orig_faster_casting() ) ) );
   if ( has_orig_faster_cast_recovery() )
-    sw() << "\tFasterCastRecovery\t" << orig_faster_cast_recovery() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "FasterCastRecovery", lexical_cast<string>( orig_faster_cast_recovery() ) ) );
   if ( has_orig_defence_increase() )
-    sw() << "\tDefenceIncrease\t" << orig_defence_increase() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "DefenceIncrease", lexical_cast<string>( orig_defence_increase() ) ) );
   if ( has_orig_defence_increase_cap() )
-    sw() << "\tDefenceIncreaseCap\t" << orig_defence_increase_cap() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "DefenceIncreaseCap", lexical_cast<string>( orig_defence_increase_cap() ) ) );
   if ( has_orig_lower_mana_cost() )
-    sw() << "\tLowerManaCost\t" << orig_lower_mana_cost() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "LowerManaCost", lexical_cast<string>( orig_lower_mana_cost() ) ) );
   if ( has_orig_fire_resist_cap() )
-    sw() << "\tFireResistCap\t" << orig_fire_resist_cap() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "FireResistCap", lexical_cast<string>( orig_fire_resist_cap() ) ) );
   if ( has_orig_cold_resist_cap() )
-    sw() << "\tColdResistCap\t" << orig_cold_resist_cap() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "ColdResistCap", lexical_cast<string>( orig_cold_resist_cap() ) ) );
   if ( has_orig_energy_resist_cap() )
-    sw() << "\tEnergyResistCap\t" << orig_energy_resist_cap() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "EnergyResistCap", lexical_cast<string>( orig_energy_resist_cap() ) ) );
   if ( has_orig_physical_resist_cap() )
-    sw() << "\tPhysicalResistCap\t" << orig_physical_resist_cap() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "PhysicalResistCap", lexical_cast<string>( orig_physical_resist_cap() ) ) );
   if ( has_orig_poison_resist_cap() )
-    sw() << "\tPoisonResistCap\t" << orig_poison_resist_cap() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "PoisonResistCap", lexical_cast<string>( orig_poison_resist_cap() ) ) );
   if ( has_orig_luck() )
-    sw() << "\tLuck\t" << orig_luck() << pf_endl;
+    pp.unusual.insert( make_pair( "Luck", lexical_cast<string>( orig_luck() ) ) );
   if ( no_drop_exception() )
-    sw() << "\tNoDropException\t" << no_drop_exception() << pf_endl;
+    pp.unusual.insert(
+        make_pair( "NoDropException", lexical_cast<string>( no_drop_exception() ) ) );
+}
+
+void NPC::printProperties( Clib::StreamWriter& sw ) const
+{
+  Clib::PreparePrint pp;
+  printProperties( pp );
+  ToStreamWriter( sw, pp );
 }
 
 void NPC::printDebugProperties( Clib::StreamWriter& sw ) const

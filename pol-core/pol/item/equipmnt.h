@@ -63,6 +63,7 @@ public:
 protected:
   Equipment( const ItemDesc& itemdesc, Core::UOBJ_CLASS uobj_class,
              const Core::EquipDesc* permanent_descriptor );
+  virtual void printProperties( Clib::PreparePrint& pp ) const override;
   virtual void printProperties( Clib::StreamWriter& sw ) const override;
   virtual void readProperties( Clib::ConfigElem& elem ) override;
   virtual Bscript::BObjectImp* get_script_member( const char* membername ) const override;

@@ -53,35 +53,57 @@ Map::Map( const Items::MapDesc& mapdesc )
 
 Map::~Map() {}
 
+void Map::printProperties( Clib::PreparePrint& pp ) const
+{
+  using namespace std;
+  using namespace boost;
+  base::printProperties( pp );
+
+  pp.unusual.insert( make_pair( "xwest", lexical_cast<string>( xwest ) ) );
+  pp.unusual.insert( make_pair( "ynorth", lexical_cast<string>( ynorth ) ) );
+  pp.unusual.insert( make_pair( "xeast", lexical_cast<string>( xeast ) ) );
+  pp.unusual.insert( make_pair( "ysouth", lexical_cast<string>( ysouth ) ) );
+  pp.unusual.insert( make_pair( "gumpwidth", lexical_cast<string>( gumpwidth ) ) );
+  pp.unusual.insert( make_pair( "gumpheight", lexical_cast<string>( gumpheight ) ) );
+  pp.unusual.insert( make_pair( "facetid", lexical_cast<string>( facetid ) ) );
+
+  pp.unusual.insert( make_pair( "editable", lexical_cast<string>( editable ) ) );
+
+  printPinPoints( pp );
+}
+
 void Map::printProperties( Clib::StreamWriter& sw ) const
 {
-  base::printProperties( sw );
+  Clib::PreparePrint pp;
+  printProperties( pp );
+  ToStreamWriter( sw, pp );
+}
 
-  sw() << "\txwest\t" << xwest << pf_endl;
-  sw() << "\tynorth\t" << ynorth << pf_endl;
-  sw() << "\txeast\t" << xeast << pf_endl;
-  sw() << "\tysouth\t" << ysouth << pf_endl;
-  sw() << "\tgumpwidth\t" << gumpwidth << pf_endl;
-  sw() << "\tgumpheight\t" << gumpheight << pf_endl;
-  sw() << "\tfacetid\t" << facetid << pf_endl;
+void Map::printPinPoints( Clib::PreparePrint& pp ) const
+{
+  using namespace std;
+  using namespace boost;
 
-  sw() << "\teditable\t" << editable << pf_endl;
+  PinPoints::const_iterator itr;
+  int i = 0;
+  pp.unusual.insert( make_pair( "NumPins", lexical_cast<string>( pin_points.size() ) ) );
 
-  printPinPoints( sw );
-
-  sw() << pf_endl;
+  for ( itr = pin_points.begin(); itr != pin_points.end(); ++itr, ++i )
+  {
+    string propname = "Pin";
+    propname += lexical_cast<string>( i );
+    string propvalue = lexical_cast<string>( itr->x );
+    propvalue += ",";
+    propvalue += lexical_cast<string>( itr->y );
+    pp.unusual.insert( make_pair( propname, propvalue ) );
+  }
 }
 
 void Map::printPinPoints( Clib::StreamWriter& sw ) const
 {
-  PinPoints::const_iterator itr;
-  int i = 0;
-  sw() << "\tNumPins " << pin_points.size() << pf_endl;
-
-  for ( itr = pin_points.begin(); itr != pin_points.end(); ++itr, ++i )
-  {
-    sw() << "\tPin" << i << " " << itr->x << "," << itr->y << pf_endl;
-  }
+  Clib::PreparePrint pp;
+  printPinPoints( pp );
+  ToStreamWriter( sw, pp );
 }
 
 void Map::readProperties( Clib::ConfigElem& elem )

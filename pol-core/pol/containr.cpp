@@ -99,6 +99,12 @@ void UContainer::destroy()
 // Consider: writing an "item count" property.  On read,
 // recursively read items (eliminate a lot of searching)
 
+void UContainer::printOn( Clib::vecPreparePrint& vpp ) const
+{
+  base::printOn( vpp );
+  printContents( vpp );
+}
+
 void UContainer::printOn( Clib::StreamWriter& sw ) const
 {
   base::printOn( sw );
@@ -108,6 +114,18 @@ void UContainer::printOn( Clib::StreamWriter& sw ) const
 void UContainer::printSelfOn( Clib::StreamWriter& sw ) const
 {
   base::printOn( sw );
+}
+
+void UContainer::printContents( Clib::vecPreparePrint& vpp ) const
+{
+  for ( const auto& item : contents_ )
+  {
+    if ( item != nullptr )
+    {
+      vpp << *item;
+      item->clear_dirty();
+    }
+  }
 }
 
 void UContainer::printContents( Clib::StreamWriter& sw ) const
@@ -321,25 +339,6 @@ void UContainer::enumerate_contents( Bscript::ObjArray* arr, int flags )
         UContainer* cont = static_cast<UContainer*>( item );
         if ( !cont->locked() || ( flags & ENUMERATE_IGNORE_LOCKED ) )
           cont->enumerate_contents( arr, flags );
-      }
-    }
-  }
-}
-
-void UContainer::enumerate_contents( std::vector<Items::Item*>& sub_cont_items, int flags )
-{
-  for ( auto& item : contents_ )
-  {
-    if ( item )  // dave 1/1/03, wornitemscontainer can have null items!
-    {
-      sub_cont_items.push_back( item );
-      // Austin 9-15-2006, added flag to not enumerate sub-containers.
-      if ( !( flags & ENUMERATE_ROOT_ONLY ) &&
-           ( item->isa( UOBJ_CLASS::CLASS_CONTAINER ) ) )  // FIXME check locks
-      {
-        UContainer* cont = static_cast<UContainer*>( item );
-        if ( !cont->locked() || ( flags & ENUMERATE_IGNORE_LOCKED ) )
-          cont->enumerate_contents( sub_cont_items, flags );
       }
     }
   }
@@ -899,18 +898,27 @@ bool UContainer::check_can_remove_script( Mobile::Character* chr, Items::Item* i
   }
 }
 
+void UContainer::printProperties( Clib::PreparePrint& pp ) const
+{
+  using namespace std;
+  using namespace boost;
+  base::printProperties( pp );
+
+  if ( has_max_items_mod() )
+    pp.unusual.insert( make_pair( "Max_Items_mod", lexical_cast<string>( max_items_mod() ) ) );
+  if ( has_max_weight_mod() )
+    pp.unusual.insert( make_pair( "Max_Weight_mod", lexical_cast<string>( max_weight_mod() ) ) );
+  if ( has_max_slots_mod() )
+    pp.unusual.insert( make_pair( "Max_Slots_mod", lexical_cast<string>( max_slots_mod() ) ) );
+  if ( no_drop_exception() != default_no_drop_exception() )
+    pp.unusual.insert( make_pair( "NoDropException", lexical_cast<string>( no_drop_exception() ) ) );
+}
 
 void UContainer::printProperties( Clib::StreamWriter& sw ) const
 {
-  base::printProperties( sw );
-  if ( has_max_items_mod() )
-    sw() << "\tMax_Items_mod\t" << max_items_mod() << pf_endl;
-  if ( has_max_weight_mod() )
-    sw() << "\tMax_Weight_mod\t" << max_weight_mod() << pf_endl;
-  if ( has_max_slots_mod() )
-    sw() << "\tMax_Slots_mod\t" << max_slots_mod() << pf_endl;
-  if ( no_drop_exception() != default_no_drop_exception() )
-    sw() << "\tNoDropException\t" << no_drop_exception() << pf_endl;
+  Clib::PreparePrint pp;
+  printProperties( pp );
+  ToStreamWriter( sw, pp );
 }
 
 void UContainer::readProperties( Clib::ConfigElem& elem )

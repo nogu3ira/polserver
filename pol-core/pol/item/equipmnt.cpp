@@ -69,9 +69,16 @@ Item* Equipment::clone() const
   return eq;
 }
 
+void Equipment::printProperties( Clib::PreparePrint& pp ) const
+{
+  base::printProperties( pp );
+}
+
 void Equipment::printProperties( Clib::StreamWriter& sw ) const
 {
-  base::printProperties( sw );
+  Clib::PreparePrint pp;
+  printProperties( pp );
+  ToStreamWriter( sw, pp );
 }
 
 void Equipment::readProperties( Clib::ConfigElem& elem )

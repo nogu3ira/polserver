@@ -114,6 +114,7 @@ protected:
   void create_components();
 
   virtual void readProperties( Clib::ConfigElem& elem ) override;
+  virtual void printProperties( Clib::PreparePrint& pp ) const override;
   virtual void printProperties( Clib::StreamWriter& sw ) const override;
   virtual Bscript::BObjectImp* script_method( const char* membername,
                                               Bscript::Executor& ex ) override;

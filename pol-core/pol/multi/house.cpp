@@ -531,11 +531,13 @@ void UHouse::readProperties( Clib::ConfigElem& elem )
   }
 }
 
-void UHouse::printProperties( Clib::StreamWriter& sw ) const
+void UHouse::printProperties( Clib::PreparePrint& pp ) const
 {
-  base::printProperties( sw );
+  using namespace std;
+  using namespace boost;
+  base::printProperties( pp );
 
-  sw() << "\tMultiID\t" << multiid << pf_endl;
+  pp.unusual.insert( make_pair( "MultiID", lexical_cast<string>( multiid ) ) );
 
   for ( Components::const_iterator itr = components_.begin(), end = components_.end(); itr != end;
         ++itr )
@@ -543,17 +545,24 @@ void UHouse::printProperties( Clib::StreamWriter& sw ) const
     Items::Item* item = ( *itr ).get();
     if ( item != nullptr && !item->orphan() )
     {
-      sw() << "\tComponent\t0x" << fmt::hex( item->serial ) << pf_endl;
+      pp.unusual.insert( make_pair( "Component", lexical_cast<string>( item->serial ) ) );
     }
   }
-  sw() << "\tCustom\t" << custom << pf_endl;
+  pp.unusual.insert( make_pair( "Custom", lexical_cast<string>( custom ) ) );
   if ( custom )
   {
-    CurrentDesign.printProperties( sw, "Current" );
-    WorkingDesign.printProperties( sw, "Working" );
-    BackupDesign.printProperties( sw, "Backup" );
-    sw() << "\tDesignRevision\t" << revision << pf_endl;
+    CurrentDesign.printProperties( pp, "Current" );
+    WorkingDesign.printProperties( pp, "Working" );
+    BackupDesign.printProperties( pp, "Backup" );
+    pp.unusual.insert( make_pair( "DesignRevision", lexical_cast<string>( revision ) ) );
   }
+}
+
+void UHouse::printProperties( Clib::StreamWriter& sw ) const
+{
+  Clib::PreparePrint pp;
+  printProperties( pp );
+  ToStreamWriter( sw, pp );
 }
 
 void UHouse::destroy_components()

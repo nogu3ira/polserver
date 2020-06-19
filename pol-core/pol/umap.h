@@ -100,7 +100,9 @@ protected:
                                 unsigned int* PC ) const override;
   // virtual Bscript::BObjectImp* set_script_member_double( const char *membername, double value );
   virtual bool script_isa( unsigned isatype ) const override;
+  virtual void printProperties( Clib::PreparePrint& pp ) const override;
   virtual void printProperties( Clib::StreamWriter& sw ) const override;
+  void printPinPoints( Clib::PreparePrint& pp ) const;
   void printPinPoints( Clib::StreamWriter& sw ) const;
   virtual void readProperties( Clib::ConfigElem& elem ) override;
 

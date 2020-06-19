@@ -122,8 +122,10 @@ public:
 
 protected:
   virtual const char* classname() const override;
+  virtual void printOn( Clib::vecPreparePrint& vpp ) const override;
   virtual void printOn( Clib::StreamWriter& sw ) const override;
   virtual void printSelfOn( Clib::StreamWriter& sw ) const override;
+  virtual void printProperties( Clib::PreparePrint& pp ) const override;
   virtual void printProperties( Clib::StreamWriter& sw ) const override;
   virtual void printDebugProperties( Clib::StreamWriter& sw ) const override;
 

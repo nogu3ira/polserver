@@ -29,6 +29,12 @@ SerialSet::SerialSet( Clib::ConfigElem& elem, const char* tag )
   }
 }
 
+void SerialSet::writeOn( Clib::vecPreparePrint& vpp, const char* tag ) const
+{
+  for ( const_iterator citr = begin(), citrend = end(); citr != citrend; ++citr )
+    vpp.v.back().unusual.insert( std::make_pair( tag, boost::lexical_cast<std::string>( *citr ) ) );
+}
+
 void SerialSet::writeOn( Clib::StreamWriter& os, const char* tag ) const
 {
   for ( const_iterator citr = begin(), citrend = end(); citr != citrend; ++citr )
@@ -158,9 +164,19 @@ bool Guild::hasEnemy( const Guild* g2 ) const
   return _enemyguild_serials.count( g2->guildid() ) != 0;
 }
 
+void Guild::printOn( Clib::vecPreparePrint& vpp ) const
+{
+  vpp.v.back().main.insert( std::make_pair( "GuildId", boost::lexical_cast<std::string>( _guildid ) ) );
+  _member_serials.writeOn( vpp, "Member" );
+  _allyguild_serials.writeOn( vpp, "AllyGuild" );
+  _enemyguild_serials.writeOn( vpp, "EnemyGuild" );
+  _proplist.printProperties( vpp.v.back().cprop );
+}
 
 void Guild::printOn( Clib::StreamWriter& sw ) const
 {
+  // TODO: replace with void Guild::printOn( Clib::vecPreparePrint& vpp ) above
+  // to avoid duplicate information
   sw() << "Guild" << pf_endl << "{" << pf_endl << "\tGuildId\t" << _guildid << pf_endl;
   _member_serials.writeOn( sw, "Member" );
   _allyguild_serials.writeOn( sw, "AllyGuild" );
@@ -229,6 +245,8 @@ void write_guilds( Clib::StreamWriter& sw )
   for ( const auto& _guild : Core::gamestate.guilds )
   {
     const Guild* guild = _guild.second.get();
+	// TODO: add Clib::vecPreparePrint vpp; with another 
+	// method void write_guilds( Clib::vecPreparePrint& vpp )
     guild->printOn( sw );
   }
 }

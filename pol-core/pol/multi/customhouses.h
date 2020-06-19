@@ -127,6 +127,9 @@ public:
   unsigned char NumUsedPlanes() const;
 
   void readProperties( Clib::ConfigElem& elem, const std::string& prefix );
+  void printProperties( Clib::PreparePrint& pp, const std::string& prefix ) const;
+  void ToStreamWriter( Clib::StreamWriter& sw, Clib::PreparePrint& pp ) const;
+  std::string UnEscapeSequence( std::string value ) const;
   void printProperties( Clib::StreamWriter& sw, const std::string& prefix ) const;
 
   int floor_sizes[CUSTOM_HOUSE_NUM_PLANES];

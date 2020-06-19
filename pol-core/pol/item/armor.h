@@ -68,6 +68,7 @@ public:
   DYN_PROPERTY( ar_mod, s16, Core::PROP_AR_MOD, 0 );
 
 protected:
+  virtual void printProperties( Clib::PreparePrint& pp ) const override;
   virtual void printProperties( Clib::StreamWriter& sw ) const override;
   virtual void readProperties( Clib::ConfigElem& elem ) override;
   virtual Bscript::BObjectImp* get_script_member( const char* membername ) const override;

@@ -144,6 +144,8 @@ public:
   void clear();
   size_t estimatedSize() const;
 
+  std::string EscapeSequence( std::string value ) const;
+  void printProperties( std::map<std::string, std::string>& cprop ) const;
   void printProperties( Clib::StreamWriter& sw ) const;
   void printProperties( Clib::ConfigElem& elem ) const;
   void readProperties( Clib::ConfigElem& elem );

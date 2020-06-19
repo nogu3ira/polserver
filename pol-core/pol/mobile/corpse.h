@@ -69,6 +69,7 @@ protected:
 
   explicit UCorpse( const Items::ContainerDesc& desc );
   virtual void spill_contents( Multi::UMulti* supporting_multi ) override;
+  virtual void printProperties( Clib::PreparePrint& pp ) const override;
   virtual void printProperties( Clib::StreamWriter& sw ) const override;
   virtual void readProperties( Clib::ConfigElem& elem ) override;
   friend Items::Item* Items::Item::create( const Items::ItemDesc& itemdesc, u32 serial );

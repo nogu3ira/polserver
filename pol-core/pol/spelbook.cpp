@@ -275,14 +275,26 @@ void Spellbook::add( Item* item )
   // item->saveonexit(0);
 }
 
-void Spellbook::printProperties( Clib::StreamWriter& sw ) const
+void Spellbook::printProperties( Clib::PreparePrint& pp ) const
 {
-  base::printProperties( sw );
+  using namespace std;
+  using namespace boost;
+  base::printProperties( pp );
 
   for ( int i = 0; i < 8; ++i )
-    sw() << "\tSpellbits" << i << "\t" << (int)bitwise_contents[i] << pf_endl;
+  {
+    string propname = "Spellbits";
+    propname += lexical_cast<string>( i );
+    pp.unusual.insert( make_pair( propname, lexical_cast<string>( (int)bitwise_contents[i] ) ) );
+  }
 }
 
+void Spellbook::printProperties( Clib::StreamWriter& sw ) const
+{
+  Clib::PreparePrint pp;
+  printProperties( pp );
+  ToStreamWriter( sw, pp );
+}
 
 void Spellbook::readProperties( Clib::ConfigElem& elem )
 {
@@ -296,6 +308,11 @@ void Spellbook::readProperties( Clib::ConfigElem& elem )
   }
 }
 
+void Spellbook::printOn( Clib::vecPreparePrint& vpp ) const
+{
+  base::printOn( vpp );
+  printContents( vpp );
+}
 
 void Spellbook::printOn( Clib::StreamWriter& sw ) const
 {
@@ -426,5 +443,5 @@ void send_spellbook_contents( Network::Client* client, Spellbook& spellbook )
   msg->WriteFlipped<u16>( count );
   msg.Send( client, len );
 }
-}
-}
+}  // namespace Core
+}  // namespace Pol

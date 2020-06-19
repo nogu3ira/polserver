@@ -21,6 +21,7 @@
 #include "../plib/systemstate.h"
 #include "baseobject.h"
 #include "polcfg.h"
+#include <boost/algorithm/string/replace.hpp>
 
 #define pf_endl '\n'
 namespace Pol
@@ -426,6 +427,25 @@ void PropertyList::getpropnames( std::vector<std::string>& propnames ) const
   }
 }
 
+std::string PropertyList::EscapeSequence( std::string value ) const
+{
+  boost::replace_all( value, "\"", "\"\"" );
+  boost::replace_all( value, "\'", "\'\'" );
+  return value;
+}
+
+void PropertyList::printProperties( std::map<std::string, std::string>& cprop ) const
+{
+  for ( const auto& prop : properties )
+  {
+    const std::string& first = prop.first;
+    if ( first[0] != '#' )
+    {
+      cprop.insert( std::make_pair( first, EscapeSequence( prop.second.get() ) ) );
+    }
+  }
+}
+
 void PropertyList::printProperties( Clib::StreamWriter& sw ) const
 {
   for ( const auto& prop : properties )
@@ -437,6 +457,7 @@ void PropertyList::printProperties( Clib::StreamWriter& sw ) const
     }
   }
 }
+
 void PropertyList::printProperties( Clib::ConfigElem& elem ) const
 {
   for ( const auto& prop : properties )

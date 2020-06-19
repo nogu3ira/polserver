@@ -26,12 +26,21 @@ void ULockable::readProperties( Clib::ConfigElem& elem )
   locked( elem.remove_bool( "Locked", false ) );
 }
 
-void ULockable::printProperties( Clib::StreamWriter& sw ) const
+void ULockable::printProperties( Clib::PreparePrint& pp ) const
 {
-  base::printProperties( sw );
+  using namespace std;
+  using namespace boost;
+  base::printProperties( pp );
 
   if ( locked() )
-    sw() << "\tLocked\t" << locked() << pf_endl;
+    pp.unusual.insert( make_pair( "Locked", lexical_cast<string>( locked() ) ) );
+}
+
+void ULockable::printProperties( Clib::StreamWriter& sw ) const
+{
+  Clib::PreparePrint pp;
+  printProperties( pp );
+  ToStreamWriter( sw, pp );
 }
 
 // dave 12-20

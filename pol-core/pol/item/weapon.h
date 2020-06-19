@@ -99,6 +99,7 @@ public:
                                 Core::ExportScript** hook, unsigned int* PC ) const override;
 
 protected:
+  virtual void printProperties( Clib::PreparePrint& pp ) const override;
   virtual void printProperties( Clib::StreamWriter& sw ) const override;
   virtual void readProperties( Clib::ConfigElem& elem ) override;
   // BObjectImp* script_member( const char *membername );

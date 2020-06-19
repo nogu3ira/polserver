@@ -24,6 +24,9 @@
 #include <set>
 #include <string>
 #include <type_traits>
+#include <utility>
+#include <boost/lexical_cast.hpp>
+
 
 #include "../clib/boostutils.h"
 #include "../clib/refptr.h"
@@ -44,6 +47,8 @@ class Executor;
 namespace Clib
 {
 class ConfigElem;
+class PreparePrint;
+class vecPreparePrint;
 }
 namespace Items
 {
@@ -140,7 +145,6 @@ enum class OBJ_FLAGS : u16
   NO_DROP = 1 << 9,             // Item flag
   NO_DROP_EXCEPTION = 1 << 10,  // Container/Character flag
 };
-
 /**
  * @warning if you add fields, be sure to update Items::create().
  */
@@ -177,12 +181,16 @@ public:
 
   virtual std::string get_realm() const;
 
+  virtual std::string EscapeSequence( std::string value ) const;
+  virtual std::string UnEscapeSequence( std::string value ) const;
+
   virtual void setfacing( u8 newfacing ) = 0;
   virtual void on_facing_changed();
 
   bool saveonexit() const;
   void saveonexit( bool newvalue );
 
+  virtual void printOn( Clib::vecPreparePrint& ) const;
   virtual void printOn( Clib::StreamWriter& ) const;
   virtual void printSelfOn( Clib::StreamWriter& sw ) const;
 
@@ -230,6 +238,8 @@ public:
   static std::atomic<unsigned int> clean_writes;
 
 protected:
+  virtual void printProperties( Clib::PreparePrint& pp ) const;
+  void ToStreamWriter( Clib::StreamWriter& sw, Clib::PreparePrint& pp ) const;
   virtual void printProperties( Clib::StreamWriter& sw ) const;
   virtual void printDebugProperties( Clib::StreamWriter& sw ) const;
 
@@ -308,6 +318,7 @@ private:  // not implemented:
   UObject& operator=( const UObject& );
 };
 
+extern Clib::vecPreparePrint& operator<<( Clib::vecPreparePrint&, const UObject& );
 extern Clib::StreamWriter& operator<<( Clib::StreamWriter&, const UObject& );
 
 inline bool UObject::specific_name() const

@@ -367,112 +367,148 @@ boost_utils::script_name_flystring Item::getItemdescUnequipScript()
   return itemdesc().unequip_script;
 }
 
-void Item::printProperties( Clib::StreamWriter& sw ) const
+void Item::printProperties( Clib::PreparePrint& pp ) const
 {
   using namespace fmt;
+  using namespace std;
+  using namespace boost;
 
-  base::printProperties( sw );
+  base::printProperties( pp );
 
   short maxhp_mod_ = maxhp_mod();
-  std::string suffix = name_suffix();
+  string suffix = name_suffix();
 
   if ( amount_ != 1 )
-    sw() << "\tAmount\t" << amount_ << pf_endl;
+    pp.unusual.insert( make_pair( "Amount", lexical_cast<string>( amount_ ) ) );
 
   if ( layer != 0 )
-    sw() << "\tLayer\t" << (int)layer << pf_endl;
+    pp.unusual.insert( make_pair( "Layer", lexical_cast<string>( (int)layer ) ) );
 
   if ( movable() != default_movable() )
-    sw() << "\tMovable\t" << movable() << pf_endl;
+    pp.unusual.insert( make_pair( "Movable", lexical_cast<string>( movable() ) ) );
 
   if ( invisible() != default_invisible() )
-    sw() << "\tInvisible\t" << invisible() << pf_endl;
+    pp.unusual.insert( make_pair( "Invisible", lexical_cast<string>( invisible() ) ) );
 
   if ( container != nullptr )
-    sw() << "\tContainer\t0x" << hex( container->serial ) << pf_endl;
+  {
+    pp.main.insert( make_pair( "Container", lexical_cast<string>( container->serial ) ) );
+
+	if ( !pp.internal["DIRTY"] )
+	{
+        auto toplevel_item = container;
+        while ( toplevel_item->container != nullptr && !toplevel_item->dirty() )
+          toplevel_item = toplevel_item->container;
+
+		if ( toplevel_item->dirty() )
+          pp.internal["DIRTY"] = true;
+	}
+  }
 
   if ( !on_use_script_.get().empty() )
-    sw() << "\tOnUseScript\t" << on_use_script_.get() << pf_endl;
+    pp.unusual.insert( make_pair( "OnUseScript", on_use_script_.get() ) );
 
   if ( equip_script_ != itemdesc().equip_script )
-    sw() << "\tEquipScript\t" << equip_script_.get() << pf_endl;
+    pp.unusual.insert( make_pair( "EquipScript", equip_script_.get() ) );
 
   if ( unequip_script_ != itemdesc().unequip_script )
-    sw() << "\tUnequipScript\t" << unequip_script_.get() << pf_endl;
+    pp.unusual.insert( make_pair( "UnequipScript", unequip_script_.get() ) );
 
   if ( decayat_gameclock_ != 0 )
-    sw() << "\tDecayAt\t" << decayat_gameclock_ << pf_endl;
+    pp.unusual.insert( make_pair( "DecayAt", lexical_cast<string>( decayat_gameclock_ ) ) );
 
   if ( has_sellprice_() )
-    sw() << "\tSellPrice\t" << sellprice_() << pf_endl;
+    pp.unusual.insert( make_pair( "SellPrice", lexical_cast<string>( sellprice_() ) ) );
+
   if ( has_buyprice_() )
-    sw() << "\tBuyPrice\t" << buyprice_() << pf_endl;
+    pp.unusual.insert( make_pair( "BuyPrice", lexical_cast<string>( buyprice_() ) ) );
 
   if ( newbie() != default_newbie() )
-    sw() << "\tNewbie\t" << newbie() << pf_endl;
+    pp.unusual.insert( make_pair( "Newbie", lexical_cast<string>( newbie() ) ) );
 
   if ( insured() != default_insured() )
-    sw() << "\tInsured\t" << insured() << pf_endl;
+    pp.unusual.insert( make_pair( "Insured", lexical_cast<string>( insured() ) ) );
   // new prop stuff
   if ( has_fire_resist() )
-    sw() << "\tFireResist\t" << fire_resist().value << pf_endl;
+    pp.unusual.insert( make_pair( "FireResist", lexical_cast<string>( fire_resist().value ) ) );
   if ( has_cold_resist() )
-    sw() << "\tColdResist\t" << cold_resist().value << pf_endl;
+    pp.unusual.insert( make_pair( "ColdResist", lexical_cast<string>( cold_resist().value ) ) );
   if ( has_energy_resist() )
-    sw() << "\tEnergyResist\t" << energy_resist().value << pf_endl;
+    pp.unusual.insert( make_pair( "EnergyResist", lexical_cast<string>( energy_resist().value ) ) );
   if ( has_poison_resist() )
-    sw() << "\tPoisonResist\t" << poison_resist().value << pf_endl;
+    pp.unusual.insert( make_pair( "PoisonResist", lexical_cast<string>( poison_resist().value ) ) );
   if ( has_physical_resist() )
-    sw() << "\tPhysicalResist\t" << physical_resist().value << pf_endl;
+    pp.unusual.insert(
+        make_pair( "PhysicalResist", lexical_cast<string>( physical_resist().value ) ) );
 
   if ( has_fire_damage() )
-    sw() << "\tFireDamage\t" << fire_damage().value << pf_endl;
+    pp.unusual.insert( make_pair( "FireDamage", lexical_cast<string>( fire_damage().value ) ) );
   if ( has_cold_damage() )
-    sw() << "\tColdDamage\t" << cold_damage().value << pf_endl;
+    pp.unusual.insert( make_pair( "ColdDamage", lexical_cast<string>( cold_damage().value ) ) );
   if ( has_energy_damage() )
-    sw() << "\tEnergyDamage\t" << energy_damage().value << pf_endl;
+    pp.unusual.insert( make_pair( "EnergyDamage", lexical_cast<string>( energy_damage().value ) ) );
   if ( has_poison_damage() )
-    sw() << "\tPoisonDamage\t" << poison_damage().value << pf_endl;
+    pp.unusual.insert( make_pair( "PoisonDamage", lexical_cast<string>( poison_damage().value ) ) );
   if ( has_physical_damage() )
-    sw() << "\tPhysicalDamage\t" << physical_damage().value << pf_endl;
+    pp.unusual.insert(
+        make_pair( "PhysicalDamage", lexical_cast<string>( physical_damage().value ) ) );
   if ( has_lower_reagent_cost() )
-    sw() << "\tLowerReagentCost\t" << lower_reagent_cost().value << pf_endl;
+    pp.unusual.insert(
+        make_pair( "LowerReagentCost", lexical_cast<string>( lower_reagent_cost().value ) ) );
   if ( has_spell_damage_increase() )
-    sw() << "\tSpellDamageIncrease\t" << spell_damage_increase().value << pf_endl;
+    pp.unusual.insert(
+        make_pair( "SpellDamageIncrease", lexical_cast<string>( spell_damage_increase().value ) ) );
   if ( has_faster_casting() )
-    sw() << "\tFasterCasting\t" << faster_casting().value << pf_endl;
+    pp.unusual.insert(
+        make_pair( "FasterCasting", lexical_cast<string>( faster_casting().value ) ) );
   if ( has_faster_cast_recovery() )
-    sw() << "\tFasterCastRecovery\t" << faster_cast_recovery().value << pf_endl;
+    pp.unusual.insert(
+        make_pair( "FasterCastRecovery", lexical_cast<string>( faster_cast_recovery().value ) ) );
   if ( has_defence_increase() )
-    sw() << "\tDefenceIncrease\t" << defence_increase().value << pf_endl;
+    pp.unusual.insert(
+        make_pair( "DefenceIncrease", lexical_cast<string>( defence_increase().value ) ) );
   if ( has_defence_increase_cap() )
-    sw() << "\tDefenceIncreaseCap\t" << defence_increase_cap().value << pf_endl;
+    pp.unusual.insert(
+        make_pair( "DefenceIncreaseCap", lexical_cast<string>( defence_increase_cap().value ) ) );
   if ( has_lower_mana_cost() )
-    sw() << "\tLowerManaCost\t" << lower_mana_cost().value << pf_endl;
+    pp.unusual.insert(
+        make_pair( "LowerManaCost", lexical_cast<string>( lower_mana_cost().value ) ) );
   if ( has_fire_resist_cap() )
-    sw() << "\tFireResistCap\t" << fire_resist_cap().value << pf_endl;
+    pp.unusual.insert(
+        make_pair( "FireResistCap", lexical_cast<string>( fire_resist_cap().value ) ) );
   if ( has_cold_resist_cap() )
-    sw() << "\tColdResistCap\t" << cold_resist_cap().value << pf_endl;
+    pp.unusual.insert(
+        make_pair( "ColdResistCap", lexical_cast<string>( cold_resist_cap().value ) ) );
   if ( has_energy_resist_cap() )
-    sw() << "\tEnergyResistCap\t" << energy_resist_cap().value << pf_endl;
+    pp.unusual.insert(
+        make_pair( "EnergyResistCap", lexical_cast<string>( energy_resist_cap().value ) ) );
   if ( has_physical_resist_cap() )
-    sw() << "\tPhysicalResistCap\t" << physical_resist_cap().value << pf_endl;
+    pp.unusual.insert(
+        make_pair( "PhysicalResistCap", lexical_cast<string>( physical_resist_cap().value ) ) );
   if ( has_poison_resist_cap() )
-    sw() << "\tPoisonResistCap\t" << poison_resist_cap().value << pf_endl;
+    pp.unusual.insert(
+        make_pair( "PoisonResistCap", lexical_cast<string>( poison_resist_cap().value ) ) );
   if ( has_luck() )
-    sw() << "\tLuck\t" << luck().value << pf_endl;
+    pp.unusual.insert( make_pair( "Luck", lexical_cast<string>( luck().value ) ) );
   // end new prop stuf
   if ( maxhp_mod_ )
-    sw() << "\tMaxHp_mod\t" << maxhp_mod_ << pf_endl;
+    pp.unusual.insert( make_pair( "MaxHp_mod", lexical_cast<string>( maxhp_mod_ ) ) );
   if ( hp_ != itemdesc().maxhp )
-    sw() << "\tHp\t" << hp_ << pf_endl;
+    pp.unusual.insert( make_pair( "Hp", lexical_cast<string>( hp_ ) ) );
   double quali = getQuality();
   if ( quali != getItemdescQuality() )
-    sw() << "\tQuality\t" << quali << pf_endl;
+    pp.unusual.insert( make_pair( "Quality", lexical_cast<string>( quali ) ) );
   if ( !suffix.empty() )
-    sw() << "\tNameSuffix\t" << suffix << pf_endl;
+    pp.unusual.insert( make_pair( "NameSuffix", EscapeSequence( suffix ) ) );
   if ( no_drop() != default_no_drop() )
-    sw() << "\tNoDrop\t" << no_drop() << pf_endl;
+    pp.unusual.insert( make_pair( "NoDrop", lexical_cast<string>( no_drop() ) ) );
+}
+
+void Item::printProperties( Clib::StreamWriter& sw ) const
+{
+  Clib::PreparePrint pp;
+  printProperties( pp );
+  ToStreamWriter( sw, pp );
 }
 
 void Item::printDebugProperties( Clib::StreamWriter& sw ) const

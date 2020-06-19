@@ -168,13 +168,22 @@ Item* UArmor::clone() const
   return armor;
 }
 
+void UArmor::printProperties( Clib::PreparePrint& pp ) const
+{
+  using namespace std;
+  using namespace boost;
+  base::printProperties( pp );
+  if ( has_ar_mod() )
+    pp.unusual.insert( make_pair( "AR_mod", lexical_cast<string>( ar_mod() ) ) );
+  if ( tmpl != nullptr && onhitscript_ != ARMOR_TMPL->on_hit_script )
+    pp.unusual.insert( make_pair( "OnHitScript", onhitscript_.relativename( tmpl->pkg ) ) );
+}
+
 void UArmor::printProperties( Clib::StreamWriter& sw ) const
 {
-  base::printProperties( sw );
-  if ( has_ar_mod() )
-    sw() << "\tAR_mod\t" << ar_mod() << pf_endl;
-  if ( tmpl != nullptr && onhitscript_ != ARMOR_TMPL->on_hit_script )
-    sw() << "\tOnHitScript\t" << onhitscript_.relativename( tmpl->pkg ) << pf_endl;
+  Clib::PreparePrint pp;
+  printProperties( pp );
+  ToStreamWriter( sw, pp );
 }
 
 void UArmor::readProperties( Clib::ConfigElem& elem )

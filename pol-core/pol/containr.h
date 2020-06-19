@@ -180,6 +180,7 @@ public:
   bool check_can_remove_script( Mobile::Character* chr, Items::Item* item,
                                 MoveType move = MT_PLAYER );
   void on_remove( Mobile::Character* chr, Items::Item* item, MoveType move = MT_PLAYER );
+  virtual void printProperties( Clib::PreparePrint& pp ) const override;
   virtual void printProperties( Clib::StreamWriter& sw ) const override;
   virtual void readProperties( Clib::ConfigElem& elem ) override;
   virtual Bscript::BObjectImp* get_script_member( const char* membername ) const override;
@@ -207,7 +208,6 @@ public:
   void get_random_location( u16* px, u16* py ) const;
   bool is_legal_posn( const Items::Item* item, u16 x, u16 y ) const;
   void enumerate_contents( Bscript::ObjArray* arr, int flags );
-  void enumerate_contents( std::vector<Items::Item*>& sub_cont_items, int flags );
   void extract( Contents& cnt );
 
   bool can_swap( const UContainer& cont ) const;
@@ -263,8 +263,10 @@ protected:
   // DAVE added this 11/17 so WornItemsContainer could pass up its class to UObject constructor
   UContainer( u32 objtype, UOBJ_CLASS pol_class );
   // uses Items::classname()
+  virtual void printOn( Clib::vecPreparePrint& vpp ) const override;
   virtual void printOn( Clib::StreamWriter& sw ) const override;
   virtual void printSelfOn( Clib::StreamWriter& sw ) const override;
+  void printContents( Clib::vecPreparePrint& vpp ) const;
   void printContents( Clib::StreamWriter& sw ) const;
 };
 

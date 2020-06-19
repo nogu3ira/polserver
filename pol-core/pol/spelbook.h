@@ -60,8 +60,10 @@ public:
   u8 bitwise_contents[8];
   u8 spell_school;
   virtual void add( Items::Item* item ) override;
+  virtual void printProperties( Clib::PreparePrint& pp ) const override;
   virtual void printProperties( Clib::StreamWriter& sw ) const override;
   virtual void readProperties( Clib::ConfigElem& elem ) override;
+  virtual void printOn( Clib::vecPreparePrint& vpp ) const override;
   virtual void printOn( Clib::StreamWriter& sw ) const override;
   virtual void printSelfOn( Clib::StreamWriter& sw ) const override;
   virtual void double_click( Network::Client* client ) override;
