@@ -3227,6 +3227,19 @@ BObjectImp* UOExecutorModule::mf_SystemFindObjectBySerial()
         return item->make_ref();
       }
 
+      if ( Plib::systemstate.config.enable_sqlite )
+      {
+        if ( gamestate.sqlitedb.ExistInStorage(
+                 serial, gamestate.sqlitedb.stmt_ExistInStorage_ItemSerial ) )
+        {
+          gamestate.sqlitedb.load_toplevel_owner( serial );
+
+		  item = system_find_item( serial );
+          if ( item != nullptr )
+            return item->make_ref();
+        }
+      }
+
       return new BError( "Item not found." );
     }
   }
