@@ -22,4 +22,6 @@ if ( NOT EXISTS "${SQLITE_LIB}" )
     LOG_BUILD 1
     LOG_INSTALL 1
   )
+else()
+  message("SQLite already build")
 endif()
