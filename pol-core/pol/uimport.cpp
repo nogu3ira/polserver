@@ -663,6 +663,7 @@ bool BackupSQLiteDatabase()
     {
       int err = errno;
       POLLOG_ERROR.Format( "Unable to remove {}: {} ({})\n" ) << backupdb << strerror( err ) << err;
+      return false;
     }
   }
   fastcopy( currentdb, backupdb );
