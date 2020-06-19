@@ -646,8 +646,10 @@ bool BackupSQLiteDatabase()
   if ( !Plib::systemstate.config.enable_sqlite )
     return false;
 
-  std::string currentdb = Plib::systemstate.config.world_data_path + "database.db";
-  std::string backupdb = Plib::systemstate.config.world_data_path + "database.bak";
+  std::string currentdb =
+      Plib::systemstate.config.world_data_path + gamestate.sqlitedb.dbname + ".db";
+  std::string backupdb =
+      Plib::systemstate.config.world_data_path + gamestate.sqlitedb.dbname + ".bak";
 
   if ( !Clib::FileExists( currentdb ) )
   {

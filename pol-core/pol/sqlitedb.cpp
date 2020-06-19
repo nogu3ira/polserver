@@ -180,7 +180,7 @@ void SQLiteDB::read_items_in_container( const u32 container_serial )
 
 bool SQLiteDB::ExistDB()
 {
-  gamestate.sqlitedb.dbpath = Plib::systemstate.config.world_data_path + "database.db";
+  gamestate.sqlitedb.dbpath = Plib::systemstate.config.world_data_path + dbname + ".db";
   if ( Clib::FileExists( gamestate.sqlitedb.dbpath ) )
     return true;
 

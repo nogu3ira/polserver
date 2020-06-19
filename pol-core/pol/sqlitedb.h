@@ -48,7 +48,8 @@ public:
   std::string storage_Area = "storage_Area";
   std::string storage_Item = "storage_Item";
   std::string storage_Prop = "storage_Prop";
-  std::string dbpath = "data/database.db";
+  std::string dbname = "database";
+  std::string dbpath;
 
   sqlite3_stmt* stmt_ExistInStorage_AreaName;
   sqlite3_stmt* stmt_ExistInStorage_ItemName;
