@@ -16,6 +16,7 @@ int write_data( unsigned int& dirty_writes, unsigned int& clean_writes, long lon
 void read_starting_locations();
 void read_gameservers();
 bool rename_txt_file( const std::string& basename );
+bool BackupSQLiteDatabase();
 }
 namespace Accounts
 {

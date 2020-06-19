@@ -625,6 +625,50 @@ bool rename_txt_file( const std::string& basename )
   return false;
 }
 
+// For maximum performance, we use a C code. boost::copyfile(), CopyFileA() and sendfile() is so slow!
+void fastcopy( std::string infile, std::string outfile )
+{
+  FILE* in = fopen( infile.c_str(), "rb" );
+  FILE* out = fopen( outfile.c_str(), "wb" );
+  char buf[1024];
+  size_t read = 0;
+  // Read data in 1kb chunks and write to output file
+  while ( ( read = fread( buf, 1, 1024, in ) ) == 1024 )
+    fwrite( buf, 1, 1024, out );
+  // If there is any data left over write it out
+  fwrite( buf, 1, read, out );
+  fclose( out );
+  fclose( in );
+}
+
+bool BackupSQLiteDatabase()
+{
+  if ( !Plib::systemstate.config.enable_sqlite )
+    return false;
+
+  std::string currentdb = Plib::systemstate.config.world_data_path + "database.db";
+  std::string backupdb = Plib::systemstate.config.world_data_path + "database.bak";
+
+  if ( !Clib::FileExists( currentdb ) )
+  {
+    int err = errno;
+    POLLOG_ERROR.Format( "Unable to find database {}: {} ({})\n" )
+        << currentdb << strerror( err ) << err;
+    return false;
+  }
+
+  if ( Clib::FileExists( backupdb ) )
+  {
+    if ( unlink( backupdb.c_str() ) )
+    {
+      int err = errno;
+      POLLOG_ERROR.Format( "Unable to remove {}: {} ({})\n" ) << backupdb << strerror( err ) << err;
+    }
+  }
+  fastcopy( currentdb, backupdb );
+  return true;
+}
+
 void rename_dat_files()
 {
   rndat( "pol" );
@@ -1281,6 +1325,9 @@ int write_data( unsigned int& dirty_writes, unsigned int& clean_writes, long lon
       commit( "guilds" );
       commit( "datastore" );
       commit( "parties" );
+
+	  if ( BackupSQLiteDatabase() )
+	    INFO_PRINT << "\nBackup SQLite Database Saved!\n";
     }
     return true;
   } );
