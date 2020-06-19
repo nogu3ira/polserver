@@ -41,11 +41,13 @@ public:
   bool delete_root_item( const std::string& name );
   void on_delete_realm( Realms::Realm* realm );
 
-  void print( Clib::StreamWriter& sw, std::string areaName ) const;
-  void load_item( Clib::ConfigElem& elem, const std::string& areaName );
+  void print( Clib::vecPreparePrint& vpp ) const;
+  void print( Clib::StreamWriter& sw ) const;
+  void load_item( Clib::ConfigElem& elem );
+  void load_item_file( Clib::ConfigElem& elem );
   size_t estimateSize() const;
 
-  Items::Item* create_root_item( const std::string& name );
+  u32 create_root_item( const std::string& name );
 
 private:
   std::string _name;
@@ -65,11 +67,12 @@ public:
   StorageArea* find_area( const std::string& name );
   StorageArea* create_area( const std::string& name );
   StorageArea* create_area( Clib::ConfigElem& elem );
-  StorageArea* create_area( Clib::ConfigElem& elem, std::string& areaName );
+  StorageArea* create_area_file( Clib::ConfigElem& elem );
   void on_delete_realm( Realms::Realm* realm );
 
   void load_items( const u32 container_serial );
 
+  void print() const;
   void print( Clib::StreamWriter& sw ) const;
   void read( Clib::ConfigFile& cf );
   void clear();

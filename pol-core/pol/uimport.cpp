@@ -397,12 +397,12 @@ void slurp( const char* filename, const char* tags, int sysfind_flags )
           read_multi( elem );
         else if ( elem.type_is( "STORAGEAREA" ) )
         {
-          StorageArea* storage_area = gamestate.storage.create_area( elem );
+          StorageArea* storage_area = gamestate.storage.create_area_file( elem );
           // this will be followed by an item
           if ( !cf.read( elem ) )
             throw std::runtime_error( "Expected an item to exist after the storagearea." );
 
-          storage_area->load_item( elem, "" );
+          storage_area->load_item_file( elem );
         }
         else if ( elem.type_is( "REALM" ) )
           read_shadow_realms( elem );
@@ -504,7 +504,6 @@ void read_storage_dat()
     INFO_PRINT << "  " << storagefile << ":";
     Clib::ConfigFile cf2( storagefile );
     gamestate.storage.read( cf2 );
-    rename_txt_file( "storage" );
   }
   else
   {
@@ -597,24 +596,21 @@ void rndat( const std::string& basename )
 }
 
 // After import all data to SQLite database, rename txt file
-void rename_txt_file( const std::string& basename )
+bool rename_txt_file( const std::string& basename )
 {
   if ( Plib::systemstate.config.enable_sqlite )
   {
-    // if ( unlink( file.c_str() ) )
-    // {
-    //   int err = errno;
-    //   POLLOG_ERROR.Format( "Unable to delete {}: {} ({})\n" ) << file << strerror( err ) << err;
-    //   throw std::runtime_error( "Data file integrity error" );
-    // }
-
-    // Testing rename instead remove file.
     std::string currentname = Plib::systemstate.config.world_data_path + basename + ".txt";
-    std::string newname     = Plib::systemstate.config.world_data_path + basename + "-old" + ".txt";
+    std::string newname = Plib::systemstate.config.world_data_path + basename + "-old" + ".txt";
+
+    if ( !Clib::FileExists( currentname ) )
+      return false;
+
     int numfile = 0;
     while ( Clib::FileExists( newname.c_str() ) )
     {
-      newname = Plib::systemstate.config.world_data_path + basename + "-old" + std::to_string( numfile ) + ".txt";
+      newname = Plib::systemstate.config.world_data_path + basename + "-old" +
+                std::to_string( numfile ) + ".txt";
       ++numfile;
     }
     if ( rename( currentname.c_str(), newname.c_str() ) )
@@ -622,8 +618,11 @@ void rename_txt_file( const std::string& basename )
       int err = errno;
       POLLOG_ERROR.Format( "Unable to rename {} to {}: {} ({})\n" )
           << currentname << newname << strerror( err ) << err;
+      return false;
     }
+    return true;
   }
+  return false;
 }
 
 void rename_dat_files()
@@ -721,6 +720,17 @@ int read_data()
   }
 
   stateManager.gflag_in_system_load = false;
+
+  if ( rename_txt_file( "storage" ) )
+  {
+    INFO_PRINT << "\n------------------------------------------------------\n"
+		            "|Finished import into the SQLite database!           |\n"
+                    "|The storage.txt file was renamed. Shutting down POL.|\n"
+		            "|Please, start the POL now with low memory usage :)  |\n"
+                    "------------------------------------------------------\n";
+    Clib::exit_signalled = true;
+  }
+
   return 0;
 }
 
@@ -761,7 +771,10 @@ SaveContext::SaveContext()
   npcequip.init( Plib::systemstate.config.world_data_path + "npcequip.ndt" );
   items.init( Plib::systemstate.config.world_data_path + "items.ndt" );
   multis.init( Plib::systemstate.config.world_data_path + "multis.ndt" );
-  storage.init( Plib::systemstate.config.world_data_path + "storage.ndt" );
+
+  if ( !Plib::systemstate.config.enable_sqlite )
+    storage.init( Plib::systemstate.config.world_data_path + "storage.ndt" );
+
   resource.init( Plib::systemstate.config.world_data_path + "resource.ndt" );
   guilds.init( Plib::systemstate.config.world_data_path + "guilds.ndt" );
   datastore.init( Plib::systemstate.config.world_data_path + "datastore.ndt" );
@@ -799,8 +812,8 @@ SaveContext::SaveContext()
   if ( !Plib::systemstate.config.enable_sqlite )
   {
     storage() << "#" << pf_endl
-              << "#  STORAGE.TXT: Contains bank boxes, vendor inventories, and other data." << pf_endl
-              << "#" << pf_endl
+              << "#  STORAGE.TXT: Contains bank boxes, vendor inventories, and other data."
+              << pf_endl << "#" << pf_endl
               << "#  This file can safely be deleted to wipe bank boxes and vendor inventories."
               << pf_endl << "#  Note that scripts may use this for other types of storage as well"
               << pf_endl << "#" << pf_endl << pf_endl;
@@ -826,7 +839,10 @@ SaveContext::~SaveContext()
   npcequip.flush_file();
   items.flush_file();
   multis.flush_file();
-  storage.flush_file();
+
+  if ( !Plib::systemstate.config.enable_sqlite )
+    storage.flush_file();
+
   resource.flush_file();
   guilds.flush_file();
   datastore.flush_file();
@@ -1157,7 +1173,14 @@ int write_data( unsigned int& dirty_writes, unsigned int& clean_writes, long lon
       critical_parts.push_back( gamestate.task_thread_pool.checked_push( [&]() {
         try
         {
-          gamestate.storage.print( sc.storage );
+          if ( Plib::systemstate.config.enable_sqlite )
+          {
+            gamestate.storage.print();
+          }
+          else
+          {
+            gamestate.storage.print( sc.storage );
+          }
         }
         catch ( ... )
         {
