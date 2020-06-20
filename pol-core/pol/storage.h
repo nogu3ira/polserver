@@ -37,6 +37,7 @@ public:
   ~StorageArea();
 
   Items::Item* find_root_item( const std::string& name );
+  std::vector<Items::Item*> find_items_filters( const std::string& filters, std::string& err_msg );
   void insert_root_item( Items::Item* item );
   bool delete_root_item( const std::string& name );
   void on_delete_realm( Realms::Realm* realm );

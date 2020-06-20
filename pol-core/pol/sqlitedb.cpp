@@ -450,6 +450,116 @@ std::string SQLiteDB::GetNameArea( const std::string id )
   return Name;
 }
 
+void SQLiteDB::Prop_RowsToColumns( std::vector<std::string>& PropNames )
+{
+  std::string sqlquery = "SELECT PropName FROM storage_Prop WHERE CProp = 0 GROUP BY PropName";
+
+  sqlite3_stmt* stmt;
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
+  if ( rc != SQLITE_OK )
+  {
+    Finish( stmt );
+    return;
+  }
+  while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
+  {
+    if ( sqlite3_column_type( stmt, 0 ) != SQLITE_NULL )
+      PropNames.push_back( boost::lexical_cast<std::string>( sqlite3_column_text( stmt, 0 ) ) );
+  }
+  if ( rc != SQLITE_DONE )
+  {
+    Finish( stmt );
+    return;
+  }
+  Finish( stmt, false );
+}
+
+void SQLiteDB::Prop_CastInteger( std::string& filters )
+{
+  // Check INTEGER value of properties.
+  // Scripter may indicate using int(value) if that value need to be read as integer or float/double
+  // Example:
+  // Name = 'Shiny scythe' AND Amount >= int(12345123456789)
+  // Objtype <> int(0x5EE06BC1) OR Quality = int(1.104989);
+
+  size_t s, e;
+  while ( ( s = filters.find( "int(" ) ) != std::string::npos &&
+          ( e = filters.find( ")", s ) ) != std::string::npos )
+  {
+    std::string sub = filters.substr( s + 4, e - s - 4 );
+    std::string f_s = filters.substr( 0, s );
+    std::string f_e = filters.substr( e + 1 );
+    std::string type_cast = "INTEGER";
+
+    if ( sub.find( "0x" ) != std::string::npos )
+      sub = std::to_string( std::stol( sub, nullptr, 0 ) );
+
+    if ( sub.find( "." ) != std::string::npos )
+    {
+      sub = std::to_string( std::stold( sub ) );
+      type_cast = "FLOAT";
+    }
+
+    filters = f_s + "CAST(" + sub + " AS " + type_cast + ")" + f_e;
+  }
+}
+
+bool SQLiteDB::GetItemCustomFilter( std::string filters, std::vector<u32>& serials,
+                                    const std::string areaName, std::string& err_msg )
+{
+  auto AreaId = boost::lexical_cast<std::string>( GetIdArea( areaName ) );
+
+  std::string sqlquery =
+      "SELECT Serial FROM storage_Item AS m JOIN "
+      "(SELECT t.Serial AS Serial_Prop, ";
+
+  std::vector<std::string> PropNames;
+  Prop_RowsToColumns( PropNames );
+
+  for ( const auto& unusual : PropNames )
+  {
+    sqlquery += "MAX(CASE WHEN t.PropName = '" + unusual +
+                "' AND t.CProp = 0 THEN t.PropValue END) AS " + unusual + ",";
+  }
+  sqlquery.pop_back();  // Remove last character ',' from string
+
+  sqlquery += " FROM storage_Prop AS t GROUP BY t.Serial) AS p "
+              "ON m.Serial = p.Serial_Prop WHERE AreaId = ";
+  sqlquery += AreaId;
+  sqlquery += " AND ";
+
+  Prop_CastInteger( filters );
+
+  sqlquery += filters;
+
+  INFO_PRINT_TRACE( 1 ) << "GetItemCustomFilter: " << sqlquery << "\n";
+
+  sqlite3_stmt* stmt;
+  int rc = sqlite3_prepare_v2( gamestate.sqlitedb.db, sqlquery.c_str(), -1, &stmt, NULL );
+  if ( rc != SQLITE_OK )
+  {
+    ERROR_PRINT << "GetItem: some problem with prepare query.\n";
+    err_msg = sqlite3_errmsg( gamestate.sqlitedb.db );
+    Finish( stmt );
+    return false;
+  }
+
+  while ( ( rc = sqlite3_step( stmt ) ) == SQLITE_ROW )
+    serials.push_back( sqlite3_column_int( stmt, 0 ) );
+
+  if ( rc != SQLITE_DONE )
+  {
+    ERROR_PRINT << "GetItem: some problem in query.\n";
+    err_msg = sqlite3_errmsg( gamestate.sqlitedb.db );
+    Finish( stmt );
+    return false;
+  }
+
+  Finish( stmt, false );
+  INFO_PRINT_TRACE( 1 ) << "GetItemCustomFilter: OK.\n";
+  return true;
+}
+
 void SQLiteDB::GetItem( const std::string name, std::map<std::string, std::string>& main )
 {
   INFO_PRINT_TRACE( 1 ) << "GetItem: start method.\n";

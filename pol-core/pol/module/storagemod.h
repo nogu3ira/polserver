@@ -36,6 +36,7 @@ public:
   Bscript::BObjectImp* mf_CreateStorageArea();
   Bscript::BObjectImp* mf_FindRootItemInStorageArea();
   Bscript::BObjectImp* mf_CreateRootItemInStorageArea();
+  Bscript::BObjectImp* mf_FindItemsInStorageArea();
 };
 }
 }

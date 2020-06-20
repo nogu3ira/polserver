@@ -100,6 +100,11 @@ public:
   int GetIdArea( const std::string& name );
   std::string GetNameArea( const std::string id );
 
+  void Prop_RowsToColumns( std::vector<std::string>& PropNames );
+  void Prop_CastInteger( std::string& filters );
+  bool GetItemCustomFilter( std::string filters, std::vector<u32>& serials,
+                            const std::string areaName, std::string& err_msg );
+
   void load_toplevel_owner( const u32 serial );
   void Connect();
   void Close();

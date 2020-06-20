@@ -129,5 +129,32 @@ BObjectImp* StorageExecutorModule::mf_CreateRootItemInStorageArea()
 
   return new EItemRefObjImp( item );
 }
+
+BObjectImp* StorageExecutorModule::mf_FindItemsInStorageArea()
+{
+  auto area = static_cast<Core::StorageArea*>( exec.getApplicPtrParam( 0, &storage_area_type ) );
+  const String* name = getStringParam( 1 );
+
+  if ( !area || !name )
+    return new BError( "Invalid parameter type" );
+
+  std::string err_msg;
+  std::vector<Items::Item*> items = area->find_items_filters( name->value(), err_msg );
+
+  if ( !err_msg.empty() )
+    return new BError( err_msg );
+
+  if ( items.empty() )
+    return nullptr;
+
+  std::unique_ptr<ObjArray> newarr( new ObjArray );
+  for ( auto& item : items )
+  {
+	if ( item )
+      newarr->addElement( new Module::EItemRefObjImp( item ) );
+  }
+  return newarr.release();
+}
+
 }  // namespace Module
 }  // namespace Pol

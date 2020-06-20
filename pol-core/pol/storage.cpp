@@ -93,6 +93,34 @@ Items::Item* StorageArea::find_root_item( const std::string& name )
   return nullptr;
 }
 
+std::vector<Items::Item*> StorageArea::find_items_filters( const std::string& filters,
+                                                           std::string& err_msg )
+{
+  std::vector<Items::Item*> items;
+  std::vector<u32> serials;
+  if ( !gamestate.sqlitedb.GetItemCustomFilter( filters, serials, _name, err_msg ) )
+    return items;
+
+  for ( const auto& serial : serials )
+  {
+    Items::Item* item = system_find_item( serial );
+	if ( item == nullptr )
+	{
+      gamestate.sqlitedb.load_toplevel_owner( serial );
+
+      item = system_find_item( serial );
+      if ( item != nullptr )
+        items.push_back( item );
+	}
+	else
+	{
+      items.push_back( item );
+	}
+  }
+
+  return items;
+}
+
 bool StorageArea::delete_root_item( const std::string& name )
 {
   Cont::iterator itr = _items.find( name );
