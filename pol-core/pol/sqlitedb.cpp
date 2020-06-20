@@ -479,7 +479,7 @@ void SQLiteDB::Prop_CastInteger( std::string& filters )
   // Check INTEGER value of properties.
   // Scripter may indicate using int(value) if that value need to be read as integer or float/double
   // Example:
-  // Name = 'Shiny scythe' AND Amount >= int(12345123456789)
+  // Name = 'Shiny scythe' AND Amount >= int(12345)
   // Objtype <> int(0x5EE06BC1) OR Quality = int(1.104989);
 
   size_t s, e;

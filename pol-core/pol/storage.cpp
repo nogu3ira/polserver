@@ -98,6 +98,13 @@ std::vector<Items::Item*> StorageArea::find_items_filters( const std::string& fi
 {
   std::vector<Items::Item*> items;
   std::vector<u32> serials;
+
+  if (!Plib::systemstate.config.enable_sqlite)
+  {
+    err_msg = "SQLite is not enabled.";
+    return items;
+  }
+
   if ( !gamestate.sqlitedb.GetItemCustomFilter( filters, serials, _name, err_msg ) )
     return items;
 
