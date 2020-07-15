@@ -3,6 +3,7 @@
 
 #include "../../bscript/bobject.h"
 #include "../../clib/passert.h"
+#include "../../clib/streamsaver.h"
 #include "../containr.h"
 #include "../extobj.h"
 #include "../globals/settings.h"
@@ -70,6 +71,43 @@ void WornItemsContainer::RemoveItemFromLayer( Items::Item* item )
   // 12-17-2008 MuadDib added to clear item.layer properties.
   item->layer = 0;
   remove_bulk( item );
+}
+
+void WornItemsContainer::print( Clib::vecPreparePrint& vpp_pc,
+                                Clib::vecPreparePrint& vpp_equip ) const
+{
+  for ( unsigned clayer = 0; clayer < contents_.size(); ++clayer )
+  {
+    const Items::Item* item = contents_[clayer];
+    if ( item )
+    {
+      if ( ( clayer == LAYER_HAIR ) || ( clayer == LAYER_BEARD ) || ( clayer == LAYER_FACE ) ||
+           ( clayer == LAYER_ROBE_DRESS && item->objtype_ == UOBJ_DEATH_SHROUD ) )
+      {
+        vpp_pc << *item;
+        item->clear_dirty();
+      }
+      else if ( clayer == LAYER_BACKPACK )
+      {
+        // write the backpack to the PC database,
+        // and the backpack contents to the PCEQUIP database
+        const UContainer* cont = static_cast<const UContainer*>( item );
+
+        // for each new printSelfOn UObject, add a new PreparePrint into vector
+        Clib::PreparePrint pp;
+        vpp_pc.v.push_back( pp );
+
+        cont->printSelfOn( vpp_pc );
+        cont->clear_dirty();
+        cont->printContents( vpp_equip );
+      }
+      else
+      {
+        vpp_equip << *item;
+        item->clear_dirty();
+      }
+    }
+  }
 }
 
 void WornItemsContainer::print( Clib::StreamWriter& sw_pc, Clib::StreamWriter& sw_equip ) const

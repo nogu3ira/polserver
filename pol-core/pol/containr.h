@@ -267,6 +267,7 @@ protected:
   // uses Items::classname()
   virtual void printOn( Clib::vecPreparePrint& vpp ) const override;
   virtual void printOn( Clib::StreamWriter& sw ) const override;
+  virtual void printSelfOn( Clib::vecPreparePrint& vpp ) const override;
   virtual void printSelfOn( Clib::StreamWriter& sw ) const override;
   void printContents( Clib::vecPreparePrint& vpp ) const;
   void printContents( Clib::StreamWriter& sw ) const;

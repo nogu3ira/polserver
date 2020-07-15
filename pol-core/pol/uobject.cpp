@@ -552,6 +552,11 @@ void UObject::readProperties( Clib::ConfigElem& elem )
   proplist_.readProperties( elem );
 }
 
+void UObject::printSelfOn( Clib::vecPreparePrint& vpp ) const
+{
+  printOn( vpp );
+}
+
 void UObject::printSelfOn( Clib::StreamWriter& sw ) const
 {
   printOn( sw );

@@ -68,6 +68,7 @@ class UBoat;
 }  // namespace Multi
 namespace Core
 {
+class objStorageManager;
 class UContainer;
 class WornItemsContainer;
 class ExportScript;
@@ -193,6 +194,7 @@ public:
 
   virtual void printOn( Clib::vecPreparePrint& ) const;
   virtual void printOn( Clib::StreamWriter& ) const;
+  virtual void printSelfOn( Clib::vecPreparePrint& vpp ) const;
   virtual void printSelfOn( Clib::StreamWriter& sw ) const;
 
   virtual void printOnDebug( Clib::StreamWriter& sw ) const;

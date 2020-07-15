@@ -276,6 +276,11 @@ void NPC::printOn( Clib::StreamWriter& sw ) const
   // sw.flush();
 }
 
+void NPC::printSelfOn( Clib::vecPreparePrint& vpp ) const
+{
+  printOn( vpp );
+}
+
 void NPC::printSelfOn( Clib::StreamWriter& sw ) const
 {
   printOn( sw );

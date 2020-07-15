@@ -65,6 +65,7 @@ public:
   virtual void readProperties( Clib::ConfigElem& elem ) override;
   virtual void printOn( Clib::vecPreparePrint& vpp ) const override;
   virtual void printOn( Clib::StreamWriter& sw ) const override;
+  virtual void printSelfOn( Clib::vecPreparePrint& vpp ) const override;
   virtual void printSelfOn( Clib::StreamWriter& sw ) const override;
   virtual void double_click( Network::Client* client ) override;
   void send_book_old( Network::Client* client );

@@ -320,6 +320,11 @@ void Spellbook::printOn( Clib::StreamWriter& sw ) const
   printContents( sw );
 }
 
+void Spellbook::printSelfOn( Clib::vecPreparePrint& vpp ) const
+{
+  base::printOn( vpp );
+}
+
 void Spellbook::printSelfOn( Clib::StreamWriter& sw ) const
 {
   base::printOn( sw );

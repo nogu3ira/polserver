@@ -57,6 +57,7 @@ public:
   void PutItemOnLayer( Item* item );
   void RemoveItemFromLayer( Item* item );
 
+  void print( Clib::vecPreparePrint& vpp_pc, Clib::vecPreparePrint& vpp_equip ) const;
   void print( Clib::StreamWriter& sw_pc, Clib::StreamWriter& sw_equip ) const;
 };
 

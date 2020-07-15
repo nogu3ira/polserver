@@ -768,6 +768,11 @@ const char* Character::classname() const
   return "Character";
 }
 
+void Character::printSelfOn( Clib::vecPreparePrint& vpp ) const
+{
+  base::printOn( vpp );
+}
+
 void Character::printSelfOn( Clib::StreamWriter& sw ) const
 {
   base::printOn( sw );
@@ -782,6 +787,13 @@ void Character::printOn( Clib::StreamWriter& sw ) const
 {
   base::printOn( sw );
 }
+
+void Character::printWornItems( Clib::vecPreparePrint& vpp_pc,
+                                Clib::vecPreparePrint& vpp_equip ) const
+{
+  wornitems->print( vpp_pc, vpp_equip );
+}
+
 void Character::printWornItems( Clib::StreamWriter& sw_pc, Clib::StreamWriter& sw_equip ) const
 {
   wornitems->print( sw_pc, sw_equip );

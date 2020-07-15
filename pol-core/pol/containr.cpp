@@ -133,6 +133,11 @@ void UContainer::printOn( Clib::StreamWriter& sw ) const
   printContents( sw );
 }
 
+void UContainer::printSelfOn( Clib::vecPreparePrint& vpp ) const
+{
+  base::printOn( vpp );
+}
+
 void UContainer::printSelfOn( Clib::StreamWriter& sw ) const
 {
   base::printOn( sw );

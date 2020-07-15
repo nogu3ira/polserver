@@ -325,9 +325,11 @@ public:
                                 Core::ExportScript** hook, unsigned int* PC ) const override;
 
 protected:
+  friend class Core::SQLiteDB;
   virtual const char* classname() const override;
   virtual void printOn( Clib::vecPreparePrint& vpp ) const override;
   virtual void printOn( Clib::StreamWriter& sw ) const override;
+  virtual void printSelfOn( Clib::vecPreparePrint& vpp ) const override;
   virtual void printSelfOn( Clib::StreamWriter& sw ) const override;
   virtual void printProperties( Clib::PreparePrint& pp ) const override;
   virtual void printProperties( Clib::StreamWriter& sw ) const override;
@@ -695,9 +697,11 @@ public:
   void readAttributesAndVitals( Clib::ConfigElem& elem );
 
 protected:
+  friend void Core::write_characters();
   friend void Core::write_characters( Core::SaveContext& sc );
   friend void Core::write_npcs( Core::SaveContext& sc );
 
+  void printWornItems( Clib::vecPreparePrint& vpp_pc, Clib::vecPreparePrint& vpp_equip ) const;
   void printWornItems( Clib::StreamWriter& sw_pc, Clib::StreamWriter& sw_equip ) const;
 
   // CREATION
