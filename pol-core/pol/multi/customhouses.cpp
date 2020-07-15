@@ -492,7 +492,7 @@ void CustomHouseDesign::ToStreamWriter( Clib::StreamWriter& sw, Clib::PreparePri
     if ( find( begin( hexProps ), end( hexProps ), m.first ) != end( hexProps ) )
       sw() << "\t" << m.first << "\t0x" << hex( lexical_cast<u32>( m.second ) ) << pf_endl;
     else
-      sw() << "\t" << m.first << "\t" << UnEscapeSequence( m.second ) << pf_endl;
+      sw() << "\t" << m.first << "\t" << m.second << pf_endl;
   }
 
   for ( const auto& m : pp.unusual )
@@ -500,19 +500,19 @@ void CustomHouseDesign::ToStreamWriter( Clib::StreamWriter& sw, Clib::PreparePri
     if ( find( begin( hexProps ), end( hexProps ), m.first ) != end( hexProps ) )
       sw() << "\t" << m.first << "\t0x" << hex( lexical_cast<u32>( m.second ) ) << pf_endl;
     else
-      sw() << "\t" << m.first << "\t" << UnEscapeSequence( m.second ) << pf_endl;
+      sw() << "\t" << m.first << "\t" << m.second << pf_endl;
   }
 
   for ( const auto& m : pp.cprop )
-    sw() << "\tCProp\t" << m.first << " " << UnEscapeSequence( m.second ) << pf_endl;
+    sw() << "\tCProp\t" << m.first << " " << m.second << pf_endl;
 }
 
-std::string CustomHouseDesign::UnEscapeSequence( std::string value ) const
-{
-  boost::replace_all( value, "\"\"", "\"" );
-  boost::replace_all( value, "\'\'", "\'" );
-  return value;
-}
+//std::string CustomHouseDesign::UnEscapeSequence( std::string value ) const
+//{
+//  boost::replace_all( value, "\"\"", "\"" );
+//  boost::replace_all( value, "\'\'", "\'" );
+//  return value;
+//}
 
 // for testing, prints each floor's x,y,z rows
 void CustomHouseDesign::testprint( std::ostream& os ) const

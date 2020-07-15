@@ -38,6 +38,9 @@ UObject* system_find_object( u32 serial );
 Items::Item* system_find_item( USERIAL serial /*, int sysfind_flags = 0 */ );
 Mobile::Character* system_find_mobile( USERIAL serial /*, int sysfind_flags = 0 */ );
 
+bool system_find_orphan_mobile( u32 serial );
+bool system_find_orphan_item( u32 serial );
+
 Mobile::Character* find_character( USERIAL serial );
 UObject* find_toplevel_object( USERIAL serial );
 Items::Item* find_toplevel_item( USERIAL serial );

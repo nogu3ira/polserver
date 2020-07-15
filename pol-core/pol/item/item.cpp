@@ -499,7 +499,7 @@ void Item::printProperties( Clib::PreparePrint& pp ) const
   if ( quali != getItemdescQuality() )
     pp.unusual.insert( make_pair( "Quality", lexical_cast<string>( quali ) ) );
   if ( !suffix.empty() )
-    pp.unusual.insert( make_pair( "NameSuffix", EscapeSequence( suffix ) ) );
+    pp.unusual.insert( make_pair( "NameSuffix", suffix ) );
   if ( no_drop() != default_no_drop() )
     pp.unusual.insert( make_pair( "NoDrop", lexical_cast<string>( no_drop() ) ) );
 }

@@ -15,6 +15,8 @@ int write_data( unsigned int& dirty_writes, unsigned int& clean_writes, long lon
 
 void read_starting_locations();
 void read_gameservers();
+void read_character( Clib::ConfigElem& elem );
+void read_global_item( Clib::ConfigElem& elem, int /*sysfind_flags*/ );
 bool rename_txt_file( const std::string& basename );
 bool BackupSQLiteDatabase();
 }

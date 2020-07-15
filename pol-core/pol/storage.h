@@ -40,12 +40,13 @@ public:
   std::vector<Items::Item*> find_items_filters( const std::string& filters, std::string& err_msg );
   void insert_root_item( Items::Item* item );
   bool delete_root_item( const std::string& name );
+  bool unload_root_item( const std::string& name );
   void on_delete_realm( Realms::Realm* realm );
 
   void print( Clib::vecPreparePrint& vpp ) const;
   void print( Clib::StreamWriter& sw ) const;
   void load_item( Clib::ConfigElem& elem );
-  void load_item_file( Clib::ConfigElem& elem );
+  void load_item_import( Clib::ConfigElem& elem );
   size_t estimateSize() const;
 
   u32 create_root_item( const std::string& name );
@@ -78,8 +79,6 @@ public:
   void read( Clib::ConfigFile& cf );
   void clear();
   size_t estimateSize() const;
-
-  void commit_sqlitedb();
 
 private:
   // TODO: investigate if this could store objects. Does find()

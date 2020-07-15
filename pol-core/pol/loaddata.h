@@ -25,7 +25,7 @@ void load_incremental_indexes();
 unsigned get_save_index( pol_serial_t serial );
 
 void read_incremental_saves();
-void slurp( const char* filename, const char* tags, int sysfind_flags = 0 );
+void slurp( const char* filename, const char* tags, int sysfind_flags = 0, int txt_flag = 0 );
 void register_deleted_serials();
 void clear_save_index();
 

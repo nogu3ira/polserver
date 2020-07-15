@@ -104,6 +104,8 @@ UObject::~UObject()
     --stateManager.uobjcount.unreaped_orphans;
   }
   --stateManager.uobjcount.uobject_count;
+  INFO_PRINT_TRACE( 1 ) << "UObject::~UObject() " << serial << " " << name_.get()
+                        << " destroyed.\n";
 }
 
 size_t UObject::estimatedSize() const
@@ -264,19 +266,19 @@ std::string UObject::get_realm() const
   return realm->name();
 }
 
-std::string UObject::EscapeSequence( std::string value ) const
-{
-  boost::replace_all( value, "\"", "\"\"" );
-  boost::replace_all( value, "\'", "\'\'" );
-  return value;
-}
+//std::string UObject::EscapeSequence( std::string value ) const
+//{
+//  boost::replace_all( value, "\"", "\"\"" );
+//  boost::replace_all( value, "\'", "\'\'" );
+//  return value;
+//}
 
-std::string UObject::UnEscapeSequence( std::string value ) const
-{
-  boost::replace_all( value, "\"\"", "\"" );
-  boost::replace_all( value, "\'\'", "\'" );
-  return value;
-}
+//std::string UObject::UnEscapeSequence( std::string value ) const
+//{
+//  boost::replace_all( value, "\"\"", "\"" );
+//  boost::replace_all( value, "\'\'", "\'" );
+//  return value;
+//}
 
 void UObject::printProperties( Clib::PreparePrint& pp ) const
 {
@@ -289,7 +291,7 @@ void UObject::printProperties( Clib::PreparePrint& pp ) const
   pp.internal.insert( make_pair( "SERIAL_EXT", serial_ext ) );
 
   if ( !name_.get().empty() )
-    pp.main.insert( make_pair( "Name", EscapeSequence( name_.get() ) ) );
+    pp.main.insert( make_pair( "Name", name_.get() ) );
 
   pp.main.insert( make_pair( "Serial", lexical_cast<string>(serial) ) );
   pp.main.insert( make_pair( "ObjType", lexical_cast<string>( objtype_ ) ) );
@@ -309,7 +311,7 @@ void UObject::printProperties( Clib::PreparePrint& pp ) const
   if ( realm == nullptr )
     pp.main.insert( make_pair( "Realm", "britannia" ) );
   else 
-	pp.main.insert( make_pair( "Realm", EscapeSequence( realm->name() ) ) );
+	pp.main.insert( make_pair( "Realm", realm->name() ) );
 
   s16 value = fire_resist().mod;
   if ( value != 0 )
@@ -411,7 +413,7 @@ void UObject::ToStreamWriter( Clib::StreamWriter& sw, Clib::PreparePrint& pp ) c
     if ( find( begin( hexProps ), end( hexProps ), m.first ) != end( hexProps ) )
       sw() << "\t" << m.first << "\t0x" << hex( lexical_cast<u32>( m.second ) ) << pf_endl;
     else
-      sw() << "\t" << m.first << "\t" << UnEscapeSequence( m.second ) << pf_endl;
+      sw() << "\t" << m.first << "\t" << m.second << pf_endl;
   }
 
   for ( const auto& m : pp.unusual )
@@ -419,11 +421,11 @@ void UObject::ToStreamWriter( Clib::StreamWriter& sw, Clib::PreparePrint& pp ) c
     if ( find( begin( hexProps ), end( hexProps ), m.first ) != end( hexProps ) )
       sw() << "\t" << m.first << "\t0x" << hex( lexical_cast<u32>( m.second ) ) << pf_endl;
     else
-      sw() << "\t" << m.first << "\t" << UnEscapeSequence( m.second ) << pf_endl;
+      sw() << "\t" << m.first << "\t" << m.second << pf_endl;
   }
 
   for ( const auto& m : pp.cprop )
-    sw() << "\tCProp\t" << m.first << " " << UnEscapeSequence( m.second ) << pf_endl;
+    sw() << "\tCProp\t" << m.first << " " << m.second << pf_endl;
 }
 
 void UObject::printDebugProperties( Clib::StreamWriter& sw ) const

@@ -427,12 +427,12 @@ void PropertyList::getpropnames( std::vector<std::string>& propnames ) const
   }
 }
 
-std::string PropertyList::EscapeSequence( std::string value ) const
-{
-  boost::replace_all( value, "\"", "\"\"" );
-  boost::replace_all( value, "\'", "\'\'" );
-  return value;
-}
+//std::string PropertyList::EscapeSequence( std::string value ) const
+//{
+//  boost::replace_all( value, "\"", "\"\"" );
+//  boost::replace_all( value, "\'", "\'\'" );
+//  return value;
+//}
 
 void PropertyList::printProperties( std::map<std::string, std::string>& cprop ) const
 {
@@ -441,7 +441,7 @@ void PropertyList::printProperties( std::map<std::string, std::string>& cprop ) 
     const std::string& first = prop.first;
     if ( first[0] != '#' )
     {
-      cprop.insert( std::make_pair( first, EscapeSequence( prop.second.get() ) ) );
+      cprop.insert( std::make_pair( first, prop.second.get() ) );
     }
   }
 }

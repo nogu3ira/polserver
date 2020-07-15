@@ -600,6 +600,8 @@ BObjectImp* UOExecutorModule::mf_SendOpenSpecialContainer()
   item->double_click( chr->client );  // open the container on the client's screen
   chr->add_remote_container( item );
 
+  gamestate.sqlitedb.add_container_opened( item->serial, chr->serial );
+
   return new BLong( 1 );
 }
 
@@ -3213,6 +3215,28 @@ BObjectImp* UOExecutorModule::mf_SystemFindObjectBySerial()
       }
       else
       {
+        if ( Plib::systemstate.config.enable_sqlite )
+        {
+          // check if chr is orphan
+          if ( system_find_orphan_mobile( serial ) )
+            return new BError( "Character not found" );
+
+		  // Does exist chr in pcs database?
+          if ( gamestate.sqlitedb.find_serial( serial ) )
+		  {
+            gamestate.sqlitedb.load_chr_and_items( serial );
+
+            chr = system_find_mobile( serial );
+            if ( chr != nullptr )
+            {
+              if ( sysfind_flags & SYSFIND_SEARCH_OFFLINE_MOBILES )
+                return new EOfflineCharacterRefObjImp( chr );
+              else
+                return new ECharacterRefObjImp( chr );
+            }
+		  }
+		}
+
         return new BError( "Character not found" );
       }
     }
@@ -3229,12 +3253,34 @@ BObjectImp* UOExecutorModule::mf_SystemFindObjectBySerial()
 
       if ( Plib::systemstate.config.enable_sqlite )
       {
-        if ( gamestate.sqlitedb.ExistInStorage(
-                 serial, gamestate.sqlitedb.stmt_ExistInStorage_ItemSerial ) )
+		// check if item is orphan
+        if ( system_find_orphan_item( serial ) )
+          return new BError( "Item not found." );
+
+		// storage database
+        if ( gamestate.sqlitedb.Exist( serial, gamestate.sqlitedb.stmt_exist_storage_main ) )
         {
-          gamestate.sqlitedb.load_toplevel_owner( serial );
+          gamestate.sqlitedb.load_storage_toplevel_owner( serial );
 
 		  item = system_find_item( serial );
+          if ( item != nullptr )
+            return item->make_ref();
+        }
+		// pcs database
+        else if ( gamestate.sqlitedb.Exist( serial, gamestate.sqlitedb.stmt_exist_pcs_main ) )
+        {
+          gamestate.sqlitedb.load_pcs_toplevel_owner( serial );
+
+          item = system_find_item( serial );
+          if ( item != nullptr )
+            return item->make_ref();
+        }
+		// pcequip database
+        else if ( gamestate.sqlitedb.Exist( serial, gamestate.sqlitedb.stmt_exist_pcequip_main ) )
+        {
+          gamestate.sqlitedb.load_pcequip_toplevel_owner( serial );
+
+          item = system_find_item( serial );
           if ( item != nullptr )
             return item->make_ref();
         }

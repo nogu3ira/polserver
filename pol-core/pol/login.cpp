@@ -326,7 +326,7 @@ void send_start( Network::Client* client )
     if ( i < char_slots )  // Small kludge to have a minimum of 5 chars in the packet
     {
       // name only 30 long rest is password seems to fix the password promt problem
-      Mobile::Character* chr = client->acct->get_character( i );
+      Mobile::Character* chr = client->acct->get_character_start( i );
       if ( chr )
       {
         msg->Write( chr->name().c_str(), 30, false );

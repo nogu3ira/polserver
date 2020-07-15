@@ -68,6 +68,7 @@ class StreamWriter;
 }  // namespace Clib
 namespace Core
 {
+class SQLiteDB;
 class UContainer;
 class WornItemsContainer;
 }  // namespace Core
@@ -128,6 +129,7 @@ void ClientCreateCharKR( Network::Client* client, PKTIN_8D* msg );
 void ClientCreateChar70160( Network::Client* client, PKTIN_F8* msg );
 void createchar2( Accounts::Account* acct, unsigned index );
 void undo_get_item( Mobile::Character* chr, Items::Item* item );
+void write_characters();
 void write_characters( SaveContext& sc );
 void write_npcs( SaveContext& sc );
 }  // namespace Core

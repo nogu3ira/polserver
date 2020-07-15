@@ -6,6 +6,7 @@ StorageAreas();
 
 FindStorageArea( areaname );
 FindRootItemInStorageArea( area, itemname );
+FindItemsInStorageArea( area, filters );
 
 CreateStorageArea( areaname );
 CreateRootItemInStorageArea( area, itemname, objtype );

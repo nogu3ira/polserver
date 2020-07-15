@@ -31,9 +31,9 @@
 #include "item/item.h"
 #include "loaddata.h"
 #include "mkscrobj.h"
+#include "objtype.h"
 #include "polcfg.h"
 #include "ufunc.h"
-#include "objtype.h"
 
 namespace Pol
 {
@@ -74,8 +74,7 @@ Items::Item* StorageArea::find_root_item( const std::string& name )
 
   if ( Plib::systemstate.config.enable_sqlite )
   {
-    if ( gamestate.sqlitedb.ExistInStorage( name,
-                                            gamestate.sqlitedb.stmt_ExistInStorage_ItemName ) )
+    if ( gamestate.sqlitedb.Exist( name, gamestate.sqlitedb.stmt_exist_storage_main_name ) )
     {
       INFO_PRINT_TRACE( 1 ) << "find_root_item: yes found in BD. Name: " << name << "\n";
       u32 root_item_serial = create_root_item( name );
@@ -93,13 +92,14 @@ Items::Item* StorageArea::find_root_item( const std::string& name )
   return nullptr;
 }
 
+// TODO: need optimize
 std::vector<Items::Item*> StorageArea::find_items_filters( const std::string& filters,
                                                            std::string& err_msg )
 {
   std::vector<Items::Item*> items;
   std::vector<u32> serials;
 
-  if (!Plib::systemstate.config.enable_sqlite)
+  if ( !Plib::systemstate.config.enable_sqlite )
   {
     err_msg = "SQLite is not enabled.";
     return items;
@@ -111,21 +111,38 @@ std::vector<Items::Item*> StorageArea::find_items_filters( const std::string& fi
   for ( const auto& serial : serials )
   {
     Items::Item* item = system_find_item( serial );
-	if ( item == nullptr )
-	{
-      gamestate.sqlitedb.load_toplevel_owner( serial );
+    if ( item == nullptr )
+    {
+      // check if item is orphan
+      if ( system_find_orphan_item( serial ) )
+        continue;
+
+      gamestate.sqlitedb.load_storage_toplevel_owner( serial );
 
       item = system_find_item( serial );
       if ( item != nullptr )
         items.push_back( item );
-	}
-	else
-	{
+    }
+    else
+    {
       items.push_back( item );
-	}
+    }
   }
 
   return items;
+}
+
+bool StorageArea::unload_root_item( const std::string& name )
+{
+  Cont::iterator itr = _items.find( name );
+  if ( itr != _items.end() )
+  {
+    Items::Item* item = ( *itr ).second;
+    item->unload();
+    _items.erase( itr );
+    return true;
+  }
+  return false;
 }
 
 bool StorageArea::delete_root_item( const std::string& name )
@@ -197,7 +214,7 @@ void StorageArea::load_item( Clib::ConfigElem& elem )
   }
 }
 
-void StorageArea::load_item_file( Clib::ConfigElem& elem )
+void StorageArea::load_item_import( Clib::ConfigElem& elem )
 {
   // if this object is modified in a subsequent incremental save,
   // don't load it yet.
@@ -216,27 +233,29 @@ void StorageArea::load_item_file( Clib::ConfigElem& elem )
     elem.warn_with_line( "Error reading item SERIAL or OBJTYPE." );
     return;
   }
+
   if ( container_serial == 0 )
   {
     // this is a root container.
     gamestate.sqlitedb.insert_root_item( item, _name );
-    insert_root_item( item );
+    // insert_root_item( item );
   }
   else
   {
     // this is an item inside a container
     gamestate.sqlitedb.insert_item( item, _name, container_serial );
-    Items::Item* cont_item = Core::system_find_item( container_serial );
+    // Items::Item* cont_item = Core::system_find_item( container_serial );
 
-    if ( cont_item )
-    {
-      add_loaded_item( cont_item, item );
-    }
-    else
-    {
-      defer_item_insertion( item, container_serial );
-    }
+    // if ( cont_item )
+    //{
+    //  add_loaded_item( cont_item, item );
+    //}
+    // else
+    //{
+    //  defer_item_insertion( item, container_serial );
+    //}
   }
+  item->unload();
 }
 
 StorageArea* Storage::find_area( const std::string& name )
@@ -248,8 +267,7 @@ StorageArea* Storage::find_area( const std::string& name )
 
     if ( Plib::systemstate.config.enable_sqlite )
     {
-      if ( !gamestate.sqlitedb.ExistInStorage( name,
-                                               gamestate.sqlitedb.stmt_ExistInStorage_AreaName ) )
+      if ( !gamestate.sqlitedb.Exist( name, gamestate.sqlitedb.stmt_exist_storage_area ) )
       {
         INFO_PRINT_TRACE( 1 ) << "find_area: no found in BD. Name: " << name << "\n";
         return nullptr;
@@ -325,8 +343,7 @@ StorageArea* Storage::create_area_file( Clib::ConfigElem& elem )
 
   if ( Plib::systemstate.config.enable_sqlite )
   {
-    if ( !gamestate.sqlitedb.ExistInStorage( areaName,
-                                             gamestate.sqlitedb.stmt_ExistInStorage_AreaName ) )
+    if ( !gamestate.sqlitedb.Exist( areaName, gamestate.sqlitedb.stmt_exist_storage_area ) )
     {
       INFO_PRINT_TRACE( 1 ) << "create_area: no found in BD. Creating into DB.\n";
       // Create into DB
@@ -399,13 +416,12 @@ void Storage::read( Clib::ConfigFile& cf )
 
   clock_t start = clock();
 
-  gamestate.sqlitedb.Connect();
   gamestate.sqlitedb.DropIndexes();
   gamestate.sqlitedb.PragmaImport();
   gamestate.sqlitedb.BeginTransaction();
 
   if ( Plib::systemstate.config.enable_sqlite )
-    INFO_PRINT << "\nStarting import into the database: ";
+    INFO_PRINT << "\nStarting import storage.txt into the database: ";
 
   while ( cf.read( elem ) )
   {
@@ -424,7 +440,10 @@ void Storage::read( Clib::ConfigFile& cf )
       {
         try
         {
-          area->load_item_file( elem );
+          if ( Plib::systemstate.config.enable_sqlite )
+            area->load_item_import( elem );
+          else
+            area->load_item( elem );
         }
         catch ( std::exception& )
         {
@@ -446,7 +465,8 @@ void Storage::read( Clib::ConfigFile& cf )
     ++nobjects;
   }
 
-  INFO_PRINT << "\nDone!\n";
+  if ( Plib::systemstate.config.enable_sqlite )
+    INFO_PRINT << " Done!";
 
   gamestate.sqlitedb.EndTransaction();
   gamestate.sqlitedb.PragmaSettings();
@@ -461,43 +481,31 @@ void Storage::read( Clib::ConfigFile& cf )
 // Load the contents of a container from SQLite database
 void Storage::load_items( const u32 container_serial )
 {
-  if ( gamestate.sqlitedb.ExistInStorage( container_serial,
-                                          gamestate.sqlitedb.stmt_ExistInStorage_ItemSerial ) )
+  if ( gamestate.sqlitedb.Exist( container_serial,
+                                 gamestate.sqlitedb.stmt_exist_storage_main_container ) )
+  {
     gamestate.sqlitedb.read_items_in_container( container_serial );
+  }
 }
 
-// Print StorageArea and Items from SQL
+// Print StorageArea and Items to SQL
 void Storage::print() const
 {
-  // Save the areaname and vector with itemprops 
-  std::map<std::string, Clib::vecPreparePrint> AreasPreparePrints;
-  for (const auto& area : areas)
+  for ( const auto& area : areas )
   {
     Clib::vecPreparePrint vpp;
     area.second->print( vpp );
-    AreasPreparePrints.insert( make_pair( area.first, vpp ) );
-  }
 
-  // Checking in Storage Database if item was moved/deleted from there.
-
-  // Step 1:
-  // Create a list all_storage_serials with all items (serials) 
-  // in database sqlite (array of serials);
-  gamestate.sqlitedb.ListAllStorageItems();
-
-  for ( const auto& areapp : AreasPreparePrints )
-  {
-    std::string areaName = areapp.first;
-    for ( auto pp : areapp.second.v )
+    for ( auto pp : vpp.v )
     {
+      // Step 1:
+      // All found items in memory, it's set false in all_storage_serials
+      gamestate.sqlitedb.remove_from_list( boost::lexical_cast<u32>( pp.main["Serial"] ),
+                                           gamestate.sqlitedb.all_storage_serials );
+
       // Step 2:
-      // All found items in storage (root item and container item),
-      // i'm removing from the list all_storage_serials;
-      gamestate.sqlitedb.remove_from_list( gamestate.sqlitedb.all_storage_serials,
-                                           boost::lexical_cast<u32>( pp.main["Serial"] ) );
-      // Step 3:
-	  // check if item was changed
-	  gamestate.sqlitedb.find_modified_storage_items( pp, areaName );
+      // check if item was changed
+      gamestate.sqlitedb.find_modified_item( pp, area.first );
     }
   }
 
@@ -513,13 +521,11 @@ void Storage::print() const
   // Step 4:
   // If found and are orphan, the item will be destroyed.
   // Remove item from DB.
-
-  gamestate.sqlitedb.find_deleted_storage_items();
+  gamestate.sqlitedb.find_deleted_items( gamestate.sqlitedb.all_storage_serials,
+                                         gamestate.sqlitedb.deleted_storage );
 
   // Step 5:
   // The rest means that they were not loaded into memory. Do nothing.
-
-  // Step 6:
   // Complete check.
 }
 
@@ -556,15 +562,6 @@ size_t Storage::estimateSize() const
       size += area.second->estimateSize();
   }
   return size;
-}
-
-void Storage::commit_sqlitedb()
-{
-  gamestate.sqlitedb.UpdateDataStorage();
-  gamestate.sqlitedb.DeleteDataStorage();
-  gamestate.sqlitedb.modified_storage.clear();
-  gamestate.sqlitedb.deleted_storage.clear();
-  gamestate.sqlitedb.all_storage_serials.clear();
 }
 
 class StorageAreaIterator final : public ContIterator

@@ -94,5 +94,24 @@ UObject* find_toplevel_object( u32 serial )
     return find_character( serial );
   }
 }
+
+bool system_find_orphan_mobile( u32 serial )
+{
+  UObject* obj = objStorageManager.objecthash.Find( serial );
+  if ( obj != nullptr && obj->ismobile() && obj->orphan() )
+    return true;
+  else
+    return false;
+}
+
+bool system_find_orphan_item( u32 serial )
+{
+  UObject* obj = objStorageManager.objecthash.Find( serial );
+  if ( obj != nullptr && obj->isitem() && obj->orphan() )
+    return true;
+  else
+    return false;
+}
+
 }
 }

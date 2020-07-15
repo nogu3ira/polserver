@@ -290,8 +290,34 @@ bool Party::register_with_members()
       chr->party( this );
       ++itr;
     }
-    else
+	else
+	{
+      if ( Plib::systemstate.config.enable_sqlite )
+      {
+        // check if chr is orphan
+		if ( system_find_orphan_mobile( *itr ) )
+		{
+          itr = _member_serials.erase( itr );
+          continue;
+		}
+
+        // Does exist chr in pcs database?
+        if ( gamestate.sqlitedb.find_serial( *itr ) )
+        {
+          gamestate.sqlitedb.load_chr_and_items( *itr );
+
+		  chr = system_find_mobile( *itr );
+          if ( chr != nullptr )
+          {
+            chr->party( this );
+            ++itr;
+            continue;
+          }
+        }
+      }
+
       itr = _member_serials.erase( itr );
+	}
   }
   if ( _member_serials.empty() )
     return ( false );

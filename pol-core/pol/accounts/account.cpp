@@ -18,6 +18,7 @@
 #include "../../clib/streamsaver.h"
 #include "../../plib/systemstate.h"
 #include "../cmdlevel.h"
+#include "../fnsearch.h"
 #include "../globals/uvars.h"
 #include "../mobile/charactr.h"
 #include "../network/client.h"
@@ -168,6 +169,34 @@ size_t Account::estimatedSize() const
 
 Mobile::Character* Account::get_character( int index )
 {
+  return characters_.at( index ).get();
+}
+
+Mobile::Character* Account::get_character_start( int index )
+{
+  if ( Plib::systemstate.config.enable_sqlite )
+  {
+    if ( !characters_.at( index ).get() )
+    {
+      // search in pcs database
+      auto& stmt = Core::gamestate.sqlitedb.stmt_select_serial_pcs_prop;
+      auto idx = boost::lexical_cast<std::string>( index );
+      u32 serial = Core::gamestate.sqlitedb.pcs_prop_get_chrserial( name_, idx, stmt );
+      if ( serial )
+      {
+        // check if chr is orphan
+        if ( Core::system_find_orphan_mobile( serial ) )
+          return characters_.at( index ).get();
+
+        INFO_PRINT_TRACE( 1 ) << "get_character: yes found in BD. Account: " << name_ << "\n";
+        Core::gamestate.sqlitedb.load_chr_and_items( serial );
+      }
+      else
+      {
+        INFO_PRINT_TRACE( 1 ) << "get_character: no found in BD. Account: " << name_ << "\n";
+      }
+    }
+  }
   return characters_.at( index ).get();
 }
 

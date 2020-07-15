@@ -47,6 +47,7 @@ public:
   int getnextfreeslot() const;
 
   Mobile::Character* get_character( int index );
+  Mobile::Character* get_character_start( int index );
   void set_character( int index, Mobile::Character* chr );
   void clear_character( int index );
 

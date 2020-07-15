@@ -114,6 +114,34 @@ void read_character( Clib::ConfigElem& elem )
   }
 }
 
+void read_character_import( Clib::ConfigElem& elem )
+{
+  // if this object is modified in a subsequent incremental save,
+  // don't load it now.
+  pol_serial_t serial = 0;
+  elem.get_prop( "SERIAL", &serial );
+  if ( get_save_index( serial ) > objStorageManager.current_incremental_save )
+    return;
+
+  // CharacterRef chr( new Mobile::Character( elem.remove_ushort( "OBJTYPE" ) ) );
+  Mobile::Character* chr = new Mobile::Character( elem.remove_ushort( "OBJTYPE" ) );
+
+  try
+  {
+    // note chr->logged_in is true..
+    chr->readProperties( elem );
+
+    // this is a chr (like root container in storage)
+    gamestate.sqlitedb.insert_root_chr( chr );
+  }
+  catch ( std::exception& )
+  {
+    if ( chr != nullptr )
+      chr->destroy();
+    throw;
+  }
+}
+
 // Dave changed 3/8/3 to use objecthash
 void read_npc( Clib::ConfigElem& elem )
 {
@@ -291,6 +319,37 @@ void read_global_item( Clib::ConfigElem& elem, int /*sysfind_flags*/ )
   }
 }
 
+void read_global_item_import( Clib::ConfigElem& elem, int txt_flag )
+{
+  // if this object is modified in a subsequent incremental save,
+  // don't load it now.
+  pol_serial_t serial = 0;
+  elem.get_prop( "SERIAL", &serial );
+  if ( get_save_index( serial ) > objStorageManager.current_incremental_save )
+    return;
+
+
+  u32 container_serial = 0;  // defaults to item in the world's top-level
+  (void)elem.remove_prop( "CONTAINER",
+                          &container_serial );  // therefore we don't need to check the return value
+
+  Items::Item* item = read_item( elem );
+  // dave added 1/15/3, protect against further crash if item is null. Should throw instead?
+  if ( item == nullptr )
+  {
+    elem.warn_with_line( "Error reading item SERIAL or OBJTYPE." );
+    return;
+  }
+
+  ItemRef itemref( item );  // dave 1/28/3 prevent item from being destroyed before function ends
+  if ( container_serial != 0 )
+  {
+    // this is an item inside a container
+    gamestate.sqlitedb.insert_item( item, container_serial, txt_flag );
+  }
+  item->unload();
+}
+
 void read_system_vars( Clib::ConfigElem& elem )
 {
   settingsManager.polvar.DataWrittenBy = elem.remove_ushort( "CoreVersion" );
@@ -361,7 +420,7 @@ std::string elapsed( clock_t start, clock_t end )
   return Clib::tostring( ms ) + " ms";
 }
 
-void slurp( const char* filename, const char* tags, int sysfind_flags )
+void slurp( const char* filename, const char* tags, int sysfind_flags, int txt_flag )
 {
   static int num_until_dot = 1000;
 
@@ -372,6 +431,14 @@ void slurp( const char* filename, const char* tags, int sysfind_flags )
     Clib::ConfigElem elem;
 
     Tools::Timer<> timer;
+
+    if ( txt_flag > 0 )
+    {
+      gamestate.sqlitedb.DropIndexes();
+      gamestate.sqlitedb.PragmaImport();
+      gamestate.sqlitedb.BeginTransaction();
+      INFO_PRINT << "\nStarting import " << filename << " into the database: ";
+    }
 
     unsigned int nobjects = 0;
     while ( cf.read( elem ) )
@@ -384,11 +451,21 @@ void slurp( const char* filename, const char* tags, int sysfind_flags )
       try
       {
         if ( stricmp( elem.type(), "CHARACTER" ) == 0 )
-          read_character( elem );
+        {
+          if ( txt_flag > 0 )
+            read_character_import( elem );
+          else
+            read_character( elem );
+        }
         else if ( stricmp( elem.type(), "NPC" ) == 0 )
           read_npc( elem );
         else if ( stricmp( elem.type(), "ITEM" ) == 0 )
-          read_global_item( elem, sysfind_flags );
+        {
+          if ( txt_flag > 0 )
+            read_global_item_import( elem, txt_flag );
+          else
+            read_global_item( elem, sysfind_flags );
+        }
         else if ( stricmp( elem.type(), "GLOBALPROPERTIES" ) == 0 )
           gamestate.global_properties->readProperties( elem );
         else if ( elem.type_is( "SYSTEM" ) )
@@ -397,12 +474,12 @@ void slurp( const char* filename, const char* tags, int sysfind_flags )
           read_multi( elem );
         else if ( elem.type_is( "STORAGEAREA" ) )
         {
-          StorageArea* storage_area = gamestate.storage.create_area_file( elem );
+          StorageArea* storage_area = gamestate.storage.create_area( elem );
           // this will be followed by an item
           if ( !cf.read( elem ) )
             throw std::runtime_error( "Expected an item to exist after the storagearea." );
 
-          storage_area->load_item_file( elem );
+          storage_area->load_item( elem );
         }
         else if ( elem.type_is( "REALM" ) )
           read_shadow_realms( elem );
@@ -413,6 +490,14 @@ void slurp( const char* filename, const char* tags, int sysfind_flags )
           throw;
       }
       ++nobjects;
+    }
+
+    if ( txt_flag > 0 )
+    {
+      INFO_PRINT << " Done!";
+      gamestate.sqlitedb.EndTransaction();
+      gamestate.sqlitedb.PragmaSettings();
+      gamestate.sqlitedb.CreateIndexes();
     }
 
     timer.stop();
@@ -449,14 +534,22 @@ void read_objects_dat()
 
 void read_pcs_dat()
 {
-  slurp( ( Plib::systemstate.config.world_data_path + "pcs.txt" ).c_str(), "CHARACTER ITEM",
-         SYSFIND_SKIP_WORLD );
+  std::string pcsfile = Plib::systemstate.config.world_data_path + "pcs.txt";
+
+  if ( Plib::systemstate.config.enable_sqlite )
+    slurp( ( pcsfile ).c_str(), "CHARACTER ITEM", SYSFIND_SKIP_WORLD, 1 );
+  else
+    slurp( ( pcsfile ).c_str(), "CHARACTER ITEM", SYSFIND_SKIP_WORLD );
 }
 
 void read_pcequip_dat()
 {
-  slurp( ( Plib::systemstate.config.world_data_path + "pcequip.txt" ).c_str(), "ITEM",
-         SYSFIND_SKIP_WORLD );
+  std::string pcequipfile = Plib::systemstate.config.world_data_path + "pcequip.txt";
+
+  if ( Plib::systemstate.config.enable_sqlite )
+    slurp( ( pcequipfile ).c_str(), "ITEM", SYSFIND_SKIP_WORLD, 2 );
+  else
+    slurp( ( pcequipfile ).c_str(), "ITEM", SYSFIND_SKIP_WORLD );
 }
 
 void read_npcs_dat()
@@ -504,10 +597,6 @@ void read_storage_dat()
     INFO_PRINT << "  " << storagefile << ":";
     Clib::ConfigFile cf2( storagefile );
     gamestate.storage.read( cf2 );
-  }
-  else
-  {
-    gamestate.sqlitedb.Connect();
   }
 }
 
@@ -625,7 +714,8 @@ bool rename_txt_file( const std::string& basename )
   return false;
 }
 
-// For maximum performance, we use a C code. boost::copyfile(), CopyFileA() and sendfile() is so slow!
+// For maximum performance, we use a C code. boost::copyfile(), CopyFileA() and sendfile() is so
+// slow!
 void fastcopy( std::string infile, std::string outfile )
 {
   FILE* in = fopen( infile.c_str(), "rb" );
@@ -644,6 +734,9 @@ void fastcopy( std::string infile, std::string outfile )
 bool BackupSQLiteDatabase()
 {
   if ( !Plib::systemstate.config.enable_sqlite )
+    return false;
+
+  if ( gamestate.sqlitedb.is_import )
     return false;
 
   std::string currentdb =
@@ -670,6 +763,38 @@ bool BackupSQLiteDatabase()
   }
   fastcopy( currentdb, backupdb );
   return true;
+}
+
+// Check if SQLite import will start.
+bool isImport()
+{
+  std::string pcsfile = Plib::systemstate.config.world_data_path + "pcs.txt";
+  std::string pcequipfile = Plib::systemstate.config.world_data_path + "pcequip.txt";
+  std::string storagefile = Plib::systemstate.config.world_data_path + "storage.txt";
+
+  if ( Clib::FileExists( pcsfile.c_str() ) && Clib::FileExists( pcequipfile.c_str() ) &&
+       Clib::FileExists( storagefile.c_str() ) && Plib::systemstate.config.enable_sqlite )
+  {
+    gamestate.sqlitedb.is_import = true;
+    return true;
+  }
+  return false;
+}
+
+bool reverse_data()
+{
+  std::string pcsfile = Plib::systemstate.config.world_data_path + "pcs.txt";
+  std::string pcequipfile = Plib::systemstate.config.world_data_path + "pcequip.txt";
+  std::string storagefile = Plib::systemstate.config.world_data_path + "storage.txt";
+  std::string sqldatabase = Plib::systemstate.config.world_data_path + gamestate.sqlitedb.dbname + ".db";
+
+  if ( !Clib::FileExists( pcsfile.c_str() ) && !Clib::FileExists( pcequipfile.c_str() ) &&
+       !Clib::FileExists( storagefile.c_str() ) && !Plib::systemstate.config.enable_sqlite &&
+       Clib::FileExists( sqldatabase.c_str() ) )
+  {
+    return true;
+  }
+  return false;
 }
 
 void rename_dat_files()
@@ -721,6 +846,8 @@ int read_data()
   // POL clock should be paused at this point.
   start_gameclock();
 
+  gamestate.sqlitedb.Connect();
+
   read_objects_dat();
   read_pcs_dat();
   read_pcequip_dat();
@@ -732,7 +859,9 @@ int read_data()
   read_resources_dat();
   read_guilds_dat();
   Module::read_datastore_dat();
-  read_party_dat();
+
+  if ( !isImport() )
+    read_party_dat();
 
   read_incremental_saves();
   insert_deferred_items();
@@ -768,13 +897,14 @@ int read_data()
 
   stateManager.gflag_in_system_load = false;
 
-  if ( rename_txt_file( "storage" ) )
+  if ( rename_txt_file( "pcs" ) && rename_txt_file( "pcequip" ) && rename_txt_file( "storage" ) )
   {
     INFO_PRINT << "\n------------------------------------------------------\n"
-		            "|Finished import into the SQLite database!           |\n"
-                    "|The storage.txt file was renamed. Shutting down POL.|\n"
-		            "|Please, start the POL now with low memory usage :)  |\n"
-                    "------------------------------------------------------\n";
+                  "| Finished import into the SQLite database!           |\n"
+                  "| The pcs.txt, pcequip.txt and storage.txt files were |\n"
+                  "| renamed. Shutting down POL.                         |\n"
+                  "| Please, start the POL now with low memory usage :)  |\n"
+                  "------------------------------------------------------\n";
     Clib::exit_signalled = true;
   }
 
@@ -812,8 +942,13 @@ SaveContext::SaveContext()
 {
   pol.init( Plib::systemstate.config.world_data_path + "pol.ndt" );
   objects.init( Plib::systemstate.config.world_data_path + "objects.ndt" );
-  pcs.init( Plib::systemstate.config.world_data_path + "pcs.ndt" );
-  pcequip.init( Plib::systemstate.config.world_data_path + "pcequip.ndt" );
+
+  if ( !Plib::systemstate.config.enable_sqlite )
+  {
+    pcs.init( Plib::systemstate.config.world_data_path + "pcs.ndt" );
+    pcequip.init( Plib::systemstate.config.world_data_path + "pcequip.ndt" );
+  }
+
   npcs.init( Plib::systemstate.config.world_data_path + "npcs.ndt" );
   npcequip.init( Plib::systemstate.config.world_data_path + "npcequip.ndt" );
   items.init( Plib::systemstate.config.world_data_path + "items.ndt" );
@@ -825,19 +960,24 @@ SaveContext::SaveContext()
   resource.init( Plib::systemstate.config.world_data_path + "resource.ndt" );
   guilds.init( Plib::systemstate.config.world_data_path + "guilds.ndt" );
   datastore.init( Plib::systemstate.config.world_data_path + "datastore.ndt" );
-  party.init( Plib::systemstate.config.world_data_path + "parties.ndt" );
 
-  pcs() << "#" << pf_endl << "#  PCS.TXT: Player-Character Data" << pf_endl << "#" << pf_endl
-        << "#  In addition to PC data, this also contains hair, beards, death shrouds," << pf_endl
-        << "#  and backpacks, but not the contents of each backpack." << pf_endl << "#" << pf_endl
-        << pf_endl;
+  if ( !gamestate.sqlitedb.is_import )
+    party.init( Plib::systemstate.config.world_data_path + "parties.ndt" );
 
-  pcequip() << "#" << pf_endl << "#  PCEQUIP.TXT: Player-Character Equipment Data" << pf_endl << "#"
-            << pf_endl
-            << "#  This file can be deleted to wipe all items held/equipped by characters"
-            << pf_endl
-            << "#  Note that hair, beards, empty backpacks, and death shrouds are in PCS.TXT."
-            << pf_endl << "#" << pf_endl << pf_endl;
+  if ( !Plib::systemstate.config.enable_sqlite )
+  {
+    pcs() << "#" << pf_endl << "#  PCS.TXT: Player-Character Data" << pf_endl << "#" << pf_endl
+          << "#  In addition to PC data, this also contains hair, beards, death shrouds," << pf_endl
+          << "#  and backpacks, but not the contents of each backpack." << pf_endl << "#" << pf_endl
+          << pf_endl;
+
+    pcequip() << "#" << pf_endl << "#  PCEQUIP.TXT: Player-Character Equipment Data" << pf_endl
+              << "#" << pf_endl
+              << "#  This file can be deleted to wipe all items held/equipped by characters"
+              << pf_endl
+              << "#  Note that hair, beards, empty backpacks, and death shrouds are in PCS.TXT."
+              << pf_endl << "#" << pf_endl << pf_endl;
+  }
 
   npcs() << "#" << pf_endl << "#  NPCS.TXT: Nonplayer-Character Data" << pf_endl << "#" << pf_endl
          << "#  If you delete this file to perform an NPC wipe," << pf_endl
@@ -873,15 +1013,22 @@ SaveContext::SaveContext()
 
   datastore() << "#" << pf_endl << "#  DATASTORE.TXT: DataStore Data" << pf_endl << "#" << pf_endl
               << pf_endl;
-  party() << "#" << pf_endl << "#  PARTIES.TXT: Party Data" << pf_endl << "#" << pf_endl << pf_endl;
+
+  if ( !gamestate.sqlitedb.is_import )
+    party() << "#" << pf_endl << "#  PARTIES.TXT: Party Data" << pf_endl << "#" << pf_endl << pf_endl;
 }
 
 SaveContext::~SaveContext()
 {
   pol.flush_file();
   objects.flush_file();
-  pcs.flush_file();
-  pcequip.flush_file();
+
+  if ( !Plib::systemstate.config.enable_sqlite )
+  {
+    pcs.flush_file();
+    pcequip.flush_file();
+  }
+
   npcs.flush_file();
   npcequip.flush_file();
   items.flush_file();
@@ -893,7 +1040,9 @@ SaveContext::~SaveContext()
   resource.flush_file();
   guilds.flush_file();
   datastore.flush_file();
-  party.flush_file();
+
+  if ( !gamestate.sqlitedb.is_import )
+    party.flush_file();
 }
 
 /// blocks till possible last commit finishes
@@ -972,6 +1121,78 @@ void write_characters( Core::SaveContext& sc )
       }
     }
   }
+}
+
+// Print pcs and pcequip to SQL
+void write_characters()
+{
+  Clib::vecPreparePrint vpp_pcs;
+  Clib::vecPreparePrint vpp_pcequip;
+  for ( const auto& objitr : objStorageManager.objecthash )
+  {
+    UObject* obj = objitr.second.get();
+    if ( obj->ismobile() && !obj->orphan() )
+    {
+      Mobile::Character* chr = static_cast<Mobile::Character*>( obj );
+      if ( !chr->isa( UOBJ_CLASS::CLASS_NPC ) )
+      {
+        // for each new printOn UObject, add a new PreparePrint into vector
+        Clib::PreparePrint pp;
+        vpp_pcs.v.push_back( pp );
+
+        chr->printOn( vpp_pcs );
+        chr->clear_dirty();
+        chr->printWornItems( vpp_pcs, vpp_pcequip );
+      }
+    }
+  }
+
+  for ( auto pp : vpp_pcs.v )
+  {
+    // Step 1a:
+    // All found items in memory, it's set false in all_pcs_serials
+    gamestate.sqlitedb.remove_from_list( boost::lexical_cast<u32>( pp.main["Serial"] ),
+                                         gamestate.sqlitedb.all_pcs_serials );
+
+    // Step 1a:
+    // check if item was changed
+    gamestate.sqlitedb.find_modified_item( pp, gamestate.sqlitedb.modified_pcs,
+                                           gamestate.sqlitedb.deleted_pcs );
+  }
+
+  for ( auto pp : vpp_pcequip.v )
+  {
+    // Step 1b:
+    // All found items in memory, it's set false in all_pcequip_serials
+    gamestate.sqlitedb.remove_from_list( boost::lexical_cast<u32>( pp.main["Serial"] ),
+                                         gamestate.sqlitedb.all_pcequip_serials );
+
+    // Step 1b:
+    // check if item was changed
+    gamestate.sqlitedb.find_modified_item( pp, gamestate.sqlitedb.modified_pcequip,
+                                           gamestate.sqlitedb.deleted_pcequip );
+  }
+
+  // There will be left over items that:
+  // 	-> have been moved to another .txt file or
+  // 	-> have been removed or
+  // 	-> they just weren't loaded into memory.
+
+  // Step 2:
+  // Use system_find_item( serial ). If found, it's because it went to another txt file.
+  // Remove item from DB.
+
+  // Step 3:
+  // If found and are orphan, the item will be destroyed.
+  // Remove item from DB.
+  gamestate.sqlitedb.find_deleted_items( gamestate.sqlitedb.all_pcs_serials,
+                                         gamestate.sqlitedb.deleted_pcs );
+  gamestate.sqlitedb.find_deleted_items( gamestate.sqlitedb.all_pcequip_serials,
+                                         gamestate.sqlitedb.deleted_pcequip );
+
+  // Step 4:
+  // The rest means that they were not loaded into memory. Do nothing.
+  // Complete check.
 }
 
 void write_npcs( Core::SaveContext& sc )
@@ -1184,7 +1405,10 @@ int write_data( unsigned int& dirty_writes, unsigned int& clean_writes, long lon
       critical_parts.push_back( gamestate.task_thread_pool.checked_push( [&]() {
         try
         {
-          write_characters( sc );
+          if ( Plib::systemstate.config.enable_sqlite && !gamestate.sqlitedb.is_import )
+            write_characters();
+          else
+            write_characters( sc );
         }
         catch ( ... )
         {
@@ -1220,14 +1444,13 @@ int write_data( unsigned int& dirty_writes, unsigned int& clean_writes, long lon
       critical_parts.push_back( gamestate.task_thread_pool.checked_push( [&]() {
         try
         {
-          if ( Plib::systemstate.config.enable_sqlite )
-          {
+          if ( Plib::systemstate.config.enable_sqlite && !gamestate.sqlitedb.is_import )
             gamestate.storage.print();
-          }
+          //else if ( reverse_data() )
+            // reserve sqlite database to .txt files
+            //reverse_sql2txt();
           else
-          {
             gamestate.storage.print( sc.storage );
-          }
         }
         catch ( ... )
         {
@@ -1277,7 +1500,8 @@ int write_data( unsigned int& dirty_writes, unsigned int& clean_writes, long lon
       critical_parts.push_back( gamestate.task_thread_pool.checked_push( [&]() {
         try
         {
-          write_party( sc.party );
+          if ( !gamestate.sqlitedb.is_import )
+            write_party( sc.party );
         }
         catch ( ... )
         {
@@ -1310,15 +1534,23 @@ int write_data( unsigned int& dirty_writes, unsigned int& clean_writes, long lon
     {
       commit( "pol" );
       commit( "objects" );
-      commit( "pcs" );
-      commit( "pcequip" );
+      if ( Plib::systemstate.config.enable_sqlite && !gamestate.sqlitedb.is_import )
+      {
+        gamestate.sqlitedb.commit_pcs();
+        gamestate.sqlitedb.commit_pcequip();
+      }
+      else
+      {
+        commit( "pcs" );
+        commit( "pcequip" );
+      }
       commit( "npcs" );
       commit( "npcequip" );
       commit( "items" );
       commit( "multis" );
-      if ( Plib::systemstate.config.enable_sqlite )
+      if ( Plib::systemstate.config.enable_sqlite && !gamestate.sqlitedb.is_import )
       {
-        gamestate.storage.commit_sqlitedb();
+        gamestate.sqlitedb.commit_storage();
       }
       else
       {
@@ -1327,10 +1559,12 @@ int write_data( unsigned int& dirty_writes, unsigned int& clean_writes, long lon
       commit( "resource" );
       commit( "guilds" );
       commit( "datastore" );
-      commit( "parties" );
 
-	  if ( BackupSQLiteDatabase() )
-	    INFO_PRINT << "\nBackup SQLite Database Saved!\n";
+	  if ( !gamestate.sqlitedb.is_import )
+        commit( "parties" );
+
+      if ( BackupSQLiteDatabase() )
+        INFO_PRINT << "\nBackup SQLite Database Saved!\n";
     }
     return true;
   } );

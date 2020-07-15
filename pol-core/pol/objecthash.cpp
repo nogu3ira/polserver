@@ -15,6 +15,7 @@
 #include "../plib/systemstate.h"
 #include "accounts/account.h"
 #include "globals/state.h"
+#include "globals/uvars.h"
 #include "mobile/charactr.h"
 #include "ufunc.h"
 
@@ -41,11 +42,11 @@ bool ObjectHash::Insert( UObject* obj )
   return true;
 }
 
-bool ObjectHash::Remove( u32 /*serial*/ )
+bool ObjectHash::Remove( u32 serial )
 {
-  //  unsigned int num_erased = hash.erase( serial );
-  //  return (num_erased>0);
-  return true;
+  size_t num_erased = hash.erase( serial );
+  return (num_erased>0);
+  //return true;
 }
 
 
@@ -71,6 +72,11 @@ u32 ObjectHash::GetNextUnusedItemSerial()
       tempserial = ITEMSERIAL_START;
 
     if ( hash.find( tempserial ) != hash.end() )
+    {
+      tempserial++;
+      continue;
+    }
+    else if ( gamestate.sqlitedb.find_serial( tempserial ) )
     {
       tempserial++;
       continue;
@@ -106,6 +112,11 @@ u32 ObjectHash::GetNextUnusedCharSerial()
       tempserial = CHARACTERSERIAL_START;
 
     if ( hash.find( tempserial ) != hash.end() )
+    {
+      tempserial++;
+      continue;
+    }
+    else if ( gamestate.sqlitedb.find_serial( tempserial ) )
     {
       tempserial++;
       continue;

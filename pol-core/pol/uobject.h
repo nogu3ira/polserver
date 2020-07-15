@@ -183,8 +183,8 @@ public:
 
   virtual std::string get_realm() const;
 
-  virtual std::string EscapeSequence( std::string value ) const;
-  virtual std::string UnEscapeSequence( std::string value ) const;
+  //virtual std::string EscapeSequence( std::string value ) const;
+  //virtual std::string UnEscapeSequence( std::string value ) const;
 
   virtual void setfacing( u8 newfacing ) = 0;
   virtual void on_facing_changed();
