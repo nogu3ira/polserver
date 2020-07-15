@@ -96,6 +96,28 @@ void UContainer::destroy()
   destroy_contents();
   base::destroy();
 }
+
+void UContainer::unload_contents()
+{
+  while ( !contents_.empty() )
+  {
+    Contents::value_type item = contents_.back();
+    if ( ITEM_ELEM_PTR( item ) != nullptr )  // this is really only for wornitems.
+    {
+      item->container = nullptr;
+      item->unload();
+    }
+    contents_.pop_back();
+  }
+}
+
+
+void UContainer::unload()
+{
+  unload_contents();
+  base::unload();
+}
+
 // Consider: writing an "item count" property.  On read,
 // recursively read items (eliminate a lot of searching)
 

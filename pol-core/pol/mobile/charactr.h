@@ -291,6 +291,7 @@ private:
 public:
   virtual size_t estimatedSize() const override;
 
+  virtual void unload() override;
   virtual void destroy() override;
   virtual unsigned int weight() const override;
 

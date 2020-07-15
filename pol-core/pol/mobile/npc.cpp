@@ -137,6 +137,12 @@ void NPC::destroy()
   base::destroy();
 }
 
+void NPC::unload()
+{
+  wornitems->unload_contents();
+  base::unload();
+}
+
 const char* NPC::classname() const
 {
   return "NPC";

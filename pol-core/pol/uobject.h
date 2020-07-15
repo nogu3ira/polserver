@@ -165,6 +165,7 @@ public:
   void getpropnames( std::vector<std::string>& propnames ) const;
   const PropertyList& getprops() const;
 
+  virtual void unload();
   virtual void destroy();
 
   virtual unsigned int weight() const = 0;

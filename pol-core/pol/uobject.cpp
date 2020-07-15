@@ -141,6 +141,21 @@ void UObject::destroy()
   }
 }
 
+void UObject::unload()
+{
+  if ( serial != 0 )
+  {
+    if ( ref_counted::count() < 1 )
+    {
+      POLLOG_INFO << "Ouch! UObject::unload() with count()==" << ref_counted::count() << "\n";
+    }
+
+    passert( ref_counted::count() >= 1 );
+
+	gamestate.sqlitedb.RemoveObjectHash( serial );
+  }
+}
+
 bool UObject::dirty() const
 {
   return flags_.get( OBJ_FLAGS::DIRTY );

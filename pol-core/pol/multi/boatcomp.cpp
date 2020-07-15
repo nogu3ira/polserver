@@ -31,6 +31,12 @@ void UPlank::destroy()
   base::destroy();
 }
 
+void UPlank::unload()
+{
+  boat_.clear();
+  base::unload();
+}
+
 size_t UPlank::estimatedSize() const
 {
   return base::estimatedSize() + sizeof( ref_ptr<UBoat> );

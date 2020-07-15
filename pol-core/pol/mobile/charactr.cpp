@@ -495,6 +495,12 @@ void Character::destroy()
   base::destroy();
 }
 
+void Character::unload()
+{
+  stop_skill_script();
+  base::unload();
+}
+
 void Character::stop_skill_script()
 {
   if ( script_ex != nullptr )

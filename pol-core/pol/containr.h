@@ -109,6 +109,8 @@ public:
   virtual ~UContainer();
   virtual size_t estimatedSize() const override;
 
+  virtual void unload() override;
+  void unload_contents();
   virtual void destroy() override;
   void destroy_contents();
   typedef std::vector<Items::Item*> Contents;
