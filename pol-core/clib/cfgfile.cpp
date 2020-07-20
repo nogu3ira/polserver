@@ -1057,12 +1057,14 @@ void ConfigFile::PropsToConfigElem( ConfigElem& elem, std::map<std::string, std:
     for ( const auto& m : cprops )
       elem.properties.emplace( "CProp", m.first + " " + m.second );
 
-	// start test
-    INFO_PRINT_TRACE( 1 ) << elem.type_ << "\n";
-    INFO_PRINT_TRACE( 1 ) << elem.rest_ << "\n";
-    for ( const auto& m : elem.properties )
-      INFO_PRINT_TRACE( 1 ) << m.first << " -> " << m.second << "\n";
-	// end test
+	#ifdef _WIN32
+	  // start test
+	  INFO_PRINT_TRACE( 1 ) << elem.type_ << "\n";
+	  INFO_PRINT_TRACE( 1 ) << elem.rest_ << "\n";
+	  for ( const auto& m : elem.properties )
+	    INFO_PRINT_TRACE( 1 ) << m.first << " -> " << m.second << "\n";
+	  // end test
+	#endif
 
   }
   catch ( ... )
