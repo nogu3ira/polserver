@@ -1,4 +1,10 @@
 #!/bin/sh
+
+export CFLAGS="-lpthread"
+export CXXFLAGS="-lpthread"
+export LDFLAGS="-ldl"
+export LIBS="-ldl"
+
 CPU_CORES=`grep -c ^processor /proc/cpuinfo`
 USED_CPU_CORES=$(($CPU_CORES + 1))
 if [ -z "$CMAKE_BIN" ]; then CMAKE_BIN='cmake'; fi
