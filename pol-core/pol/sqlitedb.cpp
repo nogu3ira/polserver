@@ -924,7 +924,7 @@ void SQLiteDB::PrepareQueryGetItems( sqlite3_stmt*& stmt, int params, const stri
 
   if ( params > 1 )
   {
-    for ( unsigned i = 1; i <= params; ++i )
+    for ( int i = 1; i <= params; ++i )
     {
       sqlquery += " OR Container = ?";
     }
@@ -962,7 +962,7 @@ int SQLiteDB::GetItems( const u32& container_serial, vector<map<string, string>>
   {
     int params = static_cast<int>( ItemsInfoSerial.size() );
     PrepareQueryGetItems( stmt, params, table_name );
-    for ( unsigned i = 1; i <= params; ++i )
+    for ( int i = 1; i <= params; ++i )
     {
       // bind index starts with 1
       // vector ItemsInfoSerial index starts with 0
