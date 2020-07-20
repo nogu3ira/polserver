@@ -45,7 +45,7 @@ public:
   ~SQLiteDB();
 
   sqlite3* db = nullptr;
-  std::atomic<bool> is_import = false;
+  std::atomic<bool> is_import;
   std::string dbpath;
 
   // Tables

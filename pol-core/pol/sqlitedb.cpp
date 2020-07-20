@@ -56,6 +56,7 @@ using namespace boost;
 
 SQLiteDB::SQLiteDB()
 {
+  std::atomic<bool> is_import( false );
 }
 
 SQLiteDB::~SQLiteDB()
